@@ -694,7 +694,7 @@ def _regenerate(source: Path, root: Path) -> list[str]:
     with warnings.catch_warnings(record=True) as recorded:
         warnings.simplefilter("always", UserWarning)
         generate_client(root / "api.yaml", root, "pets", "pydantic_v2.BaseModel")
-    paths = sorted(path.relative_to(root) for path in root.rglob("*") if path.is_file())
+    paths = sorted((path.relative_to(root) for path in root.rglob("*") if path.is_file()), key=Path.as_posix)
     return [
         *(f"  file {path.as_posix()}" for path in paths if "_runtime" not in path.parts),
         f"  runtime files {sum('_runtime' in path.parts for path in paths)}",
