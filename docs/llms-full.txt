@@ -12204,8 +12204,11 @@ uv add uvicorn
 uv run uvicorn server.main:app --reload
 ```
 
-Run it from the directory that holds the top-level package; for a `src` layout, add `--app-dir src`. FastAPI's own
-command runs it too, after `uv add "fastapi[standard]"`: `uv run fastapi dev server/main.py`.
+Run it from the directory that holds the top-level package; for a `src` layout, add `--app-dir src`, which the next
+steps printed after generation add for you. FastAPI's own command runs it too, after `uv add "fastapi[standard]"`:
+`uv run fastapi dev server/main.py`. For a nested package such as `app.server`, whose parent `app` may have no
+`__init__.py`, it takes the import string instead: `uv run fastapi dev --entrypoint app.server.main:app`, with
+`uv run --directory src` for a `src` layout.
 
 A missing `services` module or class stops the start with an `ImportError` that names the file to write where it
 belongs, a package's `__init__.py` for a group you implement as a package; an import error inside your module, such
@@ -13043,11 +13046,11 @@ job cannot share its `output`. The server jobs of a batch write one generation t
 The batch publishes the server packages together with the models of every job once all jobs succeed, and publishes
 nothing when a job fails or when jobs generate different models for a shared `output`; the `uv add` notice and the
 next steps of each package follow the publication on stderr. A parent package holds one server: two server jobs
-whose packages share a directory would import their implementations from one `services` module, so the batch refuses
-them and writes nothing. `--check` compares every job as a single run does and exits with 1 when any of them would
-change. With `--output-format json`, a server job adds the generation or check payload of a single
-server run to the batch document, with file paths relative to that job's model output directory. `--all-jobs
---watch` regenerates the batch, server jobs included, whenever an input any job read changes.
+whose packages share a parent package would import their implementations from one `services` package, so the batch
+refuses them and writes nothing, whatever router groups they have. `--check` compares every job as a single run
+does and exits with 1 when any of them would change. With `--output-format json`, a server job adds the generation or
+check payload of a single server run to the batch document, with file paths relative to that job's model output
+directory. `--all-jobs --watch` regenerates the batch, server jobs included, whenever an input any job read changes.
 
 ### The generated package
 
@@ -13063,10 +13066,12 @@ server run to the batch document, with file paths relative to that job's model o
 
 Keep the service implementations and the `authorize` callback in the `services` package beside the server package,
 which `main.py` imports: `services` beside `server`, `app/services` for `--server-package app.server`, written by
-generation only while a module is missing. Each stub names the server package it was written for. The `services`
-package belongs to one server: give each server package a parent package of its own. Generation refuses a module
-named `services.py` beside the server package, a module of yours or the models, since Python would import only one
-of it and the `services` package. An application of your own, such as one with a `lifespan`, also belongs
+generation only while a module is missing. Each stub names the server package it was written for, and so does the
+docstring of `services/__init__.py`. The `services` package belongs to one server: generation refuses a second server
+package beside the first, in a later run or in the same batch, since its `main.py` would import the same `services`
+package; give each server package a parent package of its own. Generation also refuses a module named `services.py`
+beside the server package, a module of yours or the models, since Python would import only one of it and the
+`services` package. An application of your own, such as one with a `lifespan`, also belongs
 outside the package and calls `create_app` itself. `--check` treats every `.py` file under `--server-output` as
 generated, lists a file that is no longer generated as an extra file, and a file at a path the package needs is
 overwritten.

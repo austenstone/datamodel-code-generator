@@ -1661,8 +1661,9 @@ def test_fastapi_cli_shared_models_jobs(
         ("pyproject-shared-parent-jobs.toml", False, "shared-parent-jobs.txt"),
         ("pyproject-shared-parent-jobs.toml", True, "shared-parent-jobs-stub.txt"),
         ("pyproject-shared-parent-documents.toml", False, "shared-parent-documents.txt"),
+        ("pyproject-shared-parent-tags.toml", False, "shared-parent-tags.txt"),
     ],
-    ids=["same-document", "existing-stub", "other-document"],
+    ids=["same-document", "existing-stub", "other-document", "other-tags"],
 )
 def test_fastapi_cli_shared_parent_jobs(
     pyproject: str,
@@ -1672,13 +1673,15 @@ def test_fastapi_cli_shared_parent_jobs(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Refuse two top-level server jobs in one parent package, which would import their implementations from one module.
+    """Refuse two server jobs in one parent package, which would import their implementations from one package.
 
-    Neither the document each job reads nor a module of the user's already in place changes that.
+    Neither the document each job reads, the router groups it has, nor a module of the user's already in place changes
+    that.
     """
     monkeypatch.chdir(tmp_path)
     _copy(tmp_path, pyproject)
-    shutil.copy2(CLI / "pets-baseline.yaml", tmp_path / "pets-baseline.yaml")
+    for name in ("pets-baseline.yaml", "photos.yaml"):
+        shutil.copy2(CLI / name, tmp_path / name)
     if stub:
         (tmp_path / "services").mkdir()
         (tmp_path / "services" / "pets.py").write_text("# Yours\n", encoding="utf-8")
@@ -1686,6 +1689,56 @@ def test_fastapi_cli_shared_parent_jobs(
     captured = capsys.readouterr()
     written = sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*.py"))
     assert_output(f"{captured.err}written: {written}\n", EXPECTED / "cli" / expected)
+
+
+@pytest.mark.parametrize("package", ["server_a", "pkg.server_a"], ids=["top-level", "nested"])
+def test_fastapi_cli_shared_parent_runs(
+    package: str, tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuse a server package beside another one generated before, whose `services` package it would import too.
+
+    The docstring of the `services` initializer names the server package it belongs to, which regenerates as before.
+    """
+    monkeypatch.chdir(tmp_path)
+    _copy(tmp_path)
+    other = package.replace("server_a", "server_b")
+
+    def run(name: str, expected_exit: Exit = Exit.OK) -> None:
+        arguments = ["--input", "pets.yaml", "--input-file-type", "openapi", "--output", "models.py"]
+        server = _server("--server-package", name, output=name.replace(".", "/"))
+        run_main_with_args([*arguments, *server], expected_exit=expected_exit)
+
+    run(package)
+    capsys.readouterr()
+    run(other, Exit.ERROR)
+    refused = capsys.readouterr().err
+    run(package)
+    written = (tmp_path / other.replace(".", "/")).exists()
+    assert_output(f"{refused}{other} written: {written}\n", EXPECTED / "cli" / "shared-parent-runs" / f"{package}.txt")
+
+
+@pytest.mark.parametrize(
+    ("output", "package"),
+    [("server", "server"), ("src/app/server", "app.server"), ("src/server", "server"), ("app/server", "app.server")],
+    ids=["flat", "src", "src-top-level", "nested"],
+)
+def test_fastapi_cli_run_commands(
+    output: str, package: str, tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Print the commands that run the server from the working directory, adding its import root when it lies below.
+
+    uvicorn takes the import root with `--app-dir`; `fastapi dev` takes the path of `main.py` for a top-level package,
+    and the import string from the import root for a nested one.
+    """
+    monkeypatch.chdir(tmp_path)
+    _copy(tmp_path)
+    models = f"{output.rpartition('/')[0] or '.'}/models.py"
+    model_package = f"{package.rpartition('.')[0]}.models".lstrip(".")
+    run_main_with_args([
+        *("--input", "pets.yaml", "--input-file-type", "openapi", "--output", models),
+        *_server("--server-package", package, "--server-model-package", model_package, output=output),
+    ])
+    assert_output(capsys.readouterr().err, EXPECTED / "cli" / "run-commands" / f"{output.replace('/', '-')}.txt")
 
 
 @pytest.mark.parametrize(

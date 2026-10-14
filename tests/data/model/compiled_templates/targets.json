@@ -2563,6 +2563,7 @@
           "forms": true,
           "raw_request": true,
           "app": "server.main:app",
+          "top_level": true,
           "services_package": "services",
           "owned": [
             {
@@ -2590,8 +2591,8 @@
         "name": "empty",
         "context": {
           "title": "API 日本 {braces}",
-          "package": "server",
-          "model_package": "models",
+          "package": "app.server",
+          "model_package": "app.models",
           "backend": "pydantic_v2.BaseModel",
           "operations": [],
           "schemes": [],
@@ -2600,8 +2601,9 @@
           "arguments": "",
           "forms": false,
           "raw_request": false,
-          "app": "server.main:app",
-          "services_package": "services",
+          "app": "app.server.main:app",
+          "top_level": false,
+          "services_package": "app.services",
           "owned": []
         }
       }

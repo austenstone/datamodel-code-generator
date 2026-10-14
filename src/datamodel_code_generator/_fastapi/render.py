@@ -775,6 +775,7 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
             services_package=self.services_package,
             owned=self.owned,
             app=f"{config.package}.main:app",
+            top_level="." not in config.package,
             arguments=", ".join((*arguments, *(("authorize=authorize",) if plan.schemes else ()))),
             schemes=[{"name": scheme.name, "credential": _credential(scheme)} for scheme in plan.schemes],
             forms=any(spec.body is not None and spec.body.form for spec in plan.operations),

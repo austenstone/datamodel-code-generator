@@ -12,7 +12,8 @@ Custom templates, base classes, and Python types stay within these two backends.
 {% if owned %}
 `main.py` serves the application: it imports your implementation of each router group{% if schemes %} and your `authorize` function{% endif %} from the `{{ services_package }}` package beside this package, and passes them to `create_app`.
 Generation writes each of these modules that is missing, with a stub for each method that raises `NotImplementedError`, and never overwrites or deletes one.
-The `services` package belongs to this server alone: put another server package under a parent package of its own.
+The `{{ services_package }}` package belongs to this server alone, as the docstring of its `__init__.py` says: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too.
+Put each server package under a parent package of its own.
 
 | Module | File | Defines |
 | --- | --- | --- |
@@ -31,7 +32,7 @@ uv add uvicorn
 uv run uvicorn {{ app }} --reload
 ```
 
-`fastapi dev` runs it too: `uv add "fastapi[standard]"`, then `uv run fastapi dev` with the path of `main.py`, beside this README.
+`fastapi dev` runs it too: `uv add "fastapi[standard]"`, then {% if top_level %}`uv run fastapi dev` with the path of `main.py`, beside this README{% else %}`uv run fastapi dev --entrypoint {{ app }}` from the same directory, or `uv run --directory src fastapi dev --entrypoint {{ app }}` for a `src` layout{% endif %}.
 To pass other instances, such as fakes in tests, call `create_app` yourself; see [Implementing the services](#implementing-the-services).
 {%- for item in owned %}
 

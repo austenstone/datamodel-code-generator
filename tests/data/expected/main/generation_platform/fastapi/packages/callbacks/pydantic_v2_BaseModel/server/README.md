@@ -12,7 +12,8 @@ Custom templates, base classes, and Python types stay within these two backends.
 
 `main.py` serves the application: it imports your implementation of each router group and your `authorize` function from the `services` package beside this package, and passes them to `create_app`.
 Generation writes each of these modules that is missing, with a stub for each method that raises `NotImplementedError`, and never overwrites or deletes one.
-The `services` package belongs to this server alone: put another server package under a parent package of its own.
+The `services` package belongs to this server alone, as the docstring of its `__init__.py` says: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too.
+Put each server package under a parent package of its own.
 
 | Module | File | Defines |
 | --- | --- | --- |

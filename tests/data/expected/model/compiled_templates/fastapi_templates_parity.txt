@@ -384,7 +384,8 @@ Custom templates, base classes, and Python types stay within these two backends.
 
 `main.py` serves the application: it imports your implementation of each router group and your `authorize` function from the `services` package beside this package, and passes them to `create_app`.
 Generation writes each of these modules that is missing, with a stub for each method that raises `NotImplementedError`, and never overwrites or deletes one.
-The `services` package belongs to this server alone: put another server package under a parent package of its own.
+The `services` package belongs to this server alone, as the docstring of its `__init__.py` says: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too.
+Put each server package under a parent package of its own.
 
 | Module | File | Defines |
 | --- | --- | --- |
@@ -519,8 +520,8 @@ run it again when a new version of datamodel-code-generator changes them.
 === readme.jinja2 / empty
 # API 日本 {braces}
 
-The `server` package serves the API 日本 {braces} API with FastAPI.
-datamodel-code-generator generated it from the OpenAPI document, together with the `models` models of the `pydantic_v2.BaseModel` backend.
+The `app.server` package serves the API 日本 {braces} API with FastAPI.
+datamodel-code-generator generated it from the OpenAPI document, together with the `app.models` models of the `pydantic_v2.BaseModel` backend.
 Generation overwrites every file of the package, as it does the models: keep your code outside the package and regenerate the package instead of editing it; see [Regenerating](#regenerating).
 
 FastAPI server generation is experimental.
@@ -533,10 +534,10 @@ Custom templates, base classes, and Python types stay within these two backends.
 
 ```console
 uv add uvicorn
-uv run uvicorn server.main:app --reload
+uv run uvicorn app.server.main:app --reload
 ```
 
-`fastapi dev` runs it too: `uv add "fastapi[standard]"`, then `uv run fastapi dev` with the path of `main.py`, beside this README.
+`fastapi dev` runs it too: `uv add "fastapi[standard]"`, then `uv run fastapi dev --entrypoint app.server.main:app` from the same directory, or `uv run --directory src fastapi dev --entrypoint app.server.main:app` for a `src` layout.
 To pass other instances, such as fakes in tests, call `create_app` yourself; see [Implementing the services](#implementing-the-services).
 
 ## Operations
@@ -555,7 +556,7 @@ Subclass the Protocol, so that type checkers report a missing or mismatched meth
 The package looks each method up when it registers the routes, and refuses a coroutine function where the operation's handler mode needs a plain method, or the reverse, and a method that cannot take the keyword arguments of its operation; type checkers check their types.
 
 ```python
-from server import create_app
+from app.server import create_app
 
 
 app = create_app()
@@ -568,7 +569,7 @@ To keep your own `FastAPI` application, include the router:
 ```python
 from fastapi import FastAPI
 
-from server import build_router
+from app.server import build_router
 
 app = FastAPI(lifespan=lifespan, exception_handlers=exception_handlers)
 app.include_router(build_router())
@@ -579,7 +580,7 @@ app.include_router(build_router())
 `create_app` serves the part of the source document the selected operations use, which generation writes into `_generated/openapi.json`; the application reads it on the first request for it.
 `_generated/openapi.json` is package data, so a distribution that holds the package must include it: Hatchling, uv_build, poetry-core, pdm-backend, and flit_core include it by default, while setuptools needs it in `package-data` or `MANIFEST.in`.
 `create_app(..., source_openapi=False)` serves FastAPI's own document instead, built from the routes and the models they declare, in which an optional parameter or request body is `anyOf` of its type and `null`.
-An application of your own that includes `build_router(...)` serves FastAPI's document unless it calls `serve_source_openapi(app)`, imported from `server`.
+An application of your own that includes `build_router(...)` serves FastAPI's document unless it calls `serve_source_openapi(app)`, imported from `app.server`.
 
 ## Validation
 
@@ -595,7 +596,7 @@ Adapters accept integers and numbers as JSON writes them and booleans as `true` 
 A request that fails validation answers `422` with FastAPI's `{"detail": [...]}` records.
 `create_app` keeps the `type`, `loc`, and `msg` of each record and leaves out the `input` and `ctx` FastAPI adds, and pydantic's `url`, so the response does not return the rejected value as such.
 `loc` and `msg` are pydantic's and can still hold text the client chose: a mapping key or an unexpected field name, a discriminator tag, or the message of a validator of your own.
-An application of your own that includes `build_router(...)` keeps FastAPI's records; register the same handler with `app.add_exception_handler(RequestValidationError, validation_error_handler)`, importing `validation_error_handler` from `server`.
+An application of your own that includes `build_router(...)` keeps FastAPI's records; register the same handler with `app.add_exception_handler(RequestValidationError, validation_error_handler)`, importing `validation_error_handler` from `app.server`.
 To send other error bodies, pass FastAPI's `exception_handlers` to `create_app`; its entry for `RequestValidationError` replaces the package's.
 A result that fails its response model answers `500` without details, and the error, with the values, goes to the server log, as in any FastAPI application.
 `create_app(..., docs_url=None, redoc_url=None, openapi_url=None)` removes `/docs`, `/redoc`, and `/openapi.json`.

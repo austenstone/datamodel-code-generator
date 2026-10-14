@@ -7,7 +7,7 @@ import sys
 import traceback
 from functools import partial
 from itertools import starmap
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, Final, cast
 
 from datamodel_code_generator import Error, InvalidClassNameError
@@ -470,12 +470,28 @@ def _steps(steps: NextSteps) -> list[str]:
         f"implement the stubs in {created}{f' (your services: {kept})' if kept else ''}, then " if created else ""
     )
     yours = f" with your services in {kept}" if kept and not created else ""
+    app, run = _run_commands(cast("str", steps.app), _shown(cast("Path", steps.entrypoint)))
     return [
         f"Next steps: {implement}run the server{yours}:",
-        f"  uv add uvicorn && uv run uvicorn {steps.app} --reload",
-        f'or: uv add "fastapi[standard]" && uv run fastapi dev {_shown(cast("Path", steps.entrypoint))}',
+        f"  uv add uvicorn && uv run uvicorn {app} --reload",
+        f'or: uv add "fastapi[standard]" && uv run {run}',
         f"See {readme}.",
     ]
+
+
+def _run_commands(app: str, entrypoint: str) -> tuple[str, str]:
+    """Return the uvicorn arguments and the `fastapi dev` command that import a server's application.
+
+    The import root is the package directory without the package's dotted parts, relative to the working directory;
+    uvicorn adds it with `--app-dir`. `fastapi dev` imports a top-level package from the path of `main.py`, and a
+    nested one, whose parent may lack an initializer, by its import string from the import root.
+    """
+    parts = PurePosixPath(entrypoint).parent.parts
+    depth = app.partition(":")[0].count(".")
+    root = PurePosixPath(*parts[: max(len(parts) - depth, 0)], *[".."] * (depth - len(parts)))
+    app_dir, directory = (f"--app-dir {root} ", f"--directory {root} ") if root.parts else ("", "")
+    run = f"fastapi dev {entrypoint}" if depth == 1 else f"{directory}fastapi dev --entrypoint {app}"
+    return f"{app_dir}{app}", run
 
 
 def _base(config: Any, namespace: Namespace, pyproject_path: Path | None, field: str) -> Path:

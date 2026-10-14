@@ -1,0 +1,2 @@
+Error: pkg/services/__init__.py: The pkg.services package holds the implementations of the server package pkg.server_a, which pkg.server_b.main would import too: put each server package under a parent package of its own
+pkg.server_b written: False

@@ -38,6 +38,11 @@ def _models(case: dict[str, Any], package: str) -> str:
 
 
 def _generate(case: dict[str, Any], backend: str, root: Path, package: str) -> None:
+    """Generate a backend's server beside the others, with a `services` package of its own in place of theirs.
+
+    The services package belongs to one server, and the cases build their routers from handwritten services instead.
+    """
+    shutil.rmtree(root / "services", ignore_errors=True)
     for name in case.get("files", ()):
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SOURCE / name, root / name)

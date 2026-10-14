@@ -1,0 +1,2 @@
+Error: could not publish batch output: app/services: The server packages app/pets of job 'pets' and app/photos of job 'photos' would both import their implementations from this package: put each server package under a parent package of its own
+written: []

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tempfile
 import unicodedata
@@ -53,6 +54,7 @@ if TYPE_CHECKING:
 
 _PYTHON_MINIMUM = (3, 11)
 _PYTHON_MINIMUM_TEXT = f"{_PYTHON_MINIMUM[0]}.{_PYTHON_MINIMUM[1]}"
+_SERVICES_OWNER = re.compile(r'^"""Your implementations of ([\w.]+), which ', re.MULTILINE)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -694,38 +696,50 @@ class _Planner:
         )
 
     def check_services(self, artifacts: tuple[GeneratedArtifact, ...]) -> None:
-        """Refuse models or a module beside the server package with the name of the package of its implementations.
+        """Refuse a package of implementations that is not the server's own, or that models or a module would shadow.
 
-        Python would import one of a module and the package instead of the other, and a models package would be the
-        package itself.
+        Python would import one of a module beside the server package and the package instead of the other, and a
+        models package would be the package itself. The docstring of the package's initializer names the server
+        package it holds the implementations of, which another server package beside it would import too.
         """
         if not (paths := [artifact.path for artifact in artifacts if artifact.kind == "implementation"]):
             return
         module = (package := paths[0].parent).with_suffix(".py")
         models = [artifact.path for artifact in artifacts if artifact.kind == "model"]
-        clash = "has the name of"
+        server = self.config.package
+        parent = server.rpartition(".")[0]
+        services = f"{parent}.services" if parent else "services"
+        clash = f"the {services} package, from which {server}.main imports your implementations"
+        remedy = "put the server package under a parent package of its own"
         if found := next((path for path in models if path in {module, package}), None):
-            subject, remedy, module = "The models module", "name the models otherwise", found
+            path, message = found, f"The models module has the name of {clash}: name the models otherwise, or {remedy}"
         elif any(package in path.parents for path in models):
-            subject, remedy, module, clash = "The models package", "name the models otherwise", package, "would be"
+            path, message = package, f"The models package would be {clash}: name the models otherwise, or {remedy}"
         elif (self.cwd / module).is_file():
-            subject, remedy = "This module of yours", "rename the module"
+            path, message = module, f"This module of yours has the name of {clash}: rename the module, or {remedy}"
+        elif (owner := self.services_owner(path := package / "__init__.py")) not in {None, server}:
+            message = (
+                f"The {services} package holds the implementations of the server package {owner}, which {server}.main "
+                "would import too: put each server package under a parent package of its own"
+            )
         else:
             return
-        parent = self.config.package.rpartition(".")[0]
-        services = f"{parent}.services" if parent else "services"
         raise APIGenerationError((
             Diagnostic(
                 code="E_PATH_COLLISION",
                 severity="error",
                 stage="publication",
-                message=(
-                    f"{subject} {clash} the {services} package, from which {self.config.package}.main imports your "
-                    f"implementations: {remedy}, or put the server package under a parent package of its own"
-                ),
-                artifact_path=shown(module, self.cwd).as_posix(),
+                message=message,
+                artifact_path=shown(path, self.cwd).as_posix(),
             ),
         ))
+
+    def services_owner(self, initializer: Path) -> str | None:
+        """Return the server package that the docstring of an existing initializer of implementations names."""
+        if not (location := self.cwd / initializer).is_file():
+            return None
+        text = location.read_text(encoding=self.effective.encoding, errors="replace")
+        return match[1] if (match := _SERVICES_OWNER.search(text)) else None
 
     def planned(self) -> PlannedTarget:
         models, output = self.models, self.effective.output
@@ -844,8 +858,8 @@ def _unshared(
     """Yield the artifacts of a job's target that no earlier job plans.
 
     Jobs that share a models output plan each of its files once, and must plan the same content for it. Server packages
-    in one directory would import their implementations from one `services` package, so two of them refuse the run;
-    they share only its initializer, which the first job writes.
+    in one parent package would import their implementations from one `services` package, so two of them refuse the
+    run.
     """
     for artifact in target.project.artifacts:
         if artifact.kind not in {"model", "implementation"}:
@@ -857,7 +871,7 @@ def _unshared(
         )
         if planned is artifact:
             yield artifact
-        elif artifact.kind == "implementation" and location.name != "__init__.py":
+        elif artifact.kind == "implementation":
             raise APIGenerationError((
                 Diagnostic(
                     code="E_PATH_COLLISION",
@@ -866,9 +880,9 @@ def _unshared(
                     message=(
                         f"The server packages {shown(package, target.cwd).as_posix()} of job '{owner}' and "
                         f"{shown(target.package, target.cwd).as_posix()} of job '{job}' would both import their "
-                        "implementation from this module: put each server package under a parent package of its own"
+                        "implementations from this package: put each server package under a parent package of its own"
                     ),
-                    artifact_path=shown(artifact.path, target.cwd).as_posix(),
+                    artifact_path=shown(artifact.path.parent, target.cwd).as_posix(),
                 ),
             ))
         elif artifact.kind == "model" and planned.content != artifact.content:
