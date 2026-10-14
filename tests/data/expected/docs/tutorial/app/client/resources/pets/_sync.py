@@ -9,7 +9,7 @@ from contextlib import AbstractContextManager
 from functools import cached_property
 from typing import Literal
 
-import models
+from app import models
 
 from ... import _operations
 from ..._runtime.client.client import ClientCore

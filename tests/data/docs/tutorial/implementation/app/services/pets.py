@@ -1,6 +1,6 @@
-import models
-from server import HTTPResult
-from server.services import PetsService
+from app import models
+from app.server import HTTPResult
+from app.server.services import PetsService
 
 
 class Pets(PetsService):

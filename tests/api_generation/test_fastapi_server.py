@@ -219,7 +219,7 @@ def test_docs_project(
     expected = EXPECTED_DOCS_PROJECTS / project
     assert_output(generated.notice, expected / "notice.txt")
     assert_output(generated.files, expected / "files.txt")
-    for name in ("models.py", "server/services.py"):
+    for name in ("app/models.py", "app/server/services.py"):
         assert_docs_file(generated.root / name, f"{project}/{name}")
     assert_output(run_tests(generated.root, "test_app.py"), expected / "pytest.txt")
 
@@ -237,7 +237,8 @@ def test_docs_tutorial_client(
         )
         assert_output(client.notice, expected / "client-notice.txt")
         assert_output(client.files, expected / "client-files.txt")
-        assert_docs_file(client.root / "client/resources/pets/_sync.py", "tutorial/client/resources/pets/_sync.py")
+        sync = "app/client/resources/pets/_sync.py"
+        assert_docs_file(client.root / sync, f"tutorial/{sync}")
         for script in ("call.py", "call_async.py"):
             assert_output(run_python(client.root, script), expected / script.replace(".py", ".txt"))
 

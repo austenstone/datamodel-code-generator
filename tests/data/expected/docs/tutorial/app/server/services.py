@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Protocol
 
-import models
+from app import models
 from fastapi.responses import Response
 
 from ._runtime.server.responses import HTTPResult

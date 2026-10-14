@@ -4,9 +4,9 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import HTTPAuthorizationCredentials
 
-from models import Photo, PhotoUpload
-from server import Credentials, RequirementSets, build_router, serve_source_openapi, validation_error_handler
-from server.services import PhotosService
+from app.models import Photo, PhotoUpload
+from app.server import Credentials, RequirementSets, build_router, serve_source_openapi, validation_error_handler
+from app.server.services import PhotosService
 
 USERS = {"secret-token": "alice"}
 

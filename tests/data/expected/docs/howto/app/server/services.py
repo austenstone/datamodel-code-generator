@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Protocol
 
-import models
+from app import models
 from fastapi import Request
 from fastapi.responses import Response
 from typing_extensions import TypeVar

@@ -8,8 +8,9 @@
 This page is the reference behind [Python Client Generation](python-client.md): how the generated methods are
 declared, how values are converted, and the full rules of timeouts, retries, request bodies, redirects, templates,
 and errors. The guide covers the common cases with tested examples; come here for the precise rules of one setting.
-The [protocol helpers](python-client-helpers.md) have a page of their own. In the examples, `client` is the generated
-package, as in the guide's quick start.
+The [protocol helpers](python-client-helpers.md) have a page of their own. In the examples, the generated package is
+`client` and its models are `models`, in the project root; in the guide's quick start they are `app.client` and
+`app.models`, inside the application package `app`.
 
 ## Signature style
 
