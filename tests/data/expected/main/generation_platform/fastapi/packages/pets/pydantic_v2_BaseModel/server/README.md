@@ -56,11 +56,11 @@ class Pets(PetsService):
         *,
         limit: int,
         tags: list[str] | None,
-        kind: models.FieldPetsGetQueryKindParameter | None,
+        kind: models.PetsGetQueryKindParameter | None,
         X_Request_Id: UUID | None,
         since: AwareDatetime | None,
         session: str | None,
-    ) -> models.FieldPetsGetResponse | HTTPResult[models.FieldPetsGetResponse | models.Error] | Response:
+    ) -> models.PetsGetResponse | HTTPResult[models.PetsGetResponse | models.Error] | Response:
         """
         Handle GET /pets.
         """
@@ -78,7 +78,7 @@ class Pets(PetsService):
 
     def list_my_pets(
         self,
-    ) -> models.FieldPetsMineGetResponse | HTTPResult[models.FieldPetsMineGetResponse] | Response:
+    ) -> models.PetsMineGetResponse | HTTPResult[models.PetsMineGetResponse] | Response:
         """
         Handle GET /pets/mine.
         """
@@ -127,7 +127,7 @@ class Store(StoreService):
 
     def get_inventory(
         self,
-    ) -> models.FieldStoreInventoryGetResponse | HTTPResult[models.FieldStoreInventoryGetResponse] | Response:
+    ) -> models.StoreInventoryGetResponse | HTTPResult[models.StoreInventoryGetResponse] | Response:
         """
         Handle GET /store/inventory.
         """

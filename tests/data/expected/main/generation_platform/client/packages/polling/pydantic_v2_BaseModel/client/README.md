@@ -188,7 +188,7 @@ def cancel_exports(
 ```python
 def export_status(
     *,
-    criteria: models.FieldExportsStatusGetQuerystringCriteriaParameter | UNSET = UNSET,
+    criteria: models.ExportsStatusGetQuerystringCriteriaParameter | UNSET = UNSET,
     response_media_type: Literal['application/json'] | None = None,
     options: RequestOptions | None = None,
 ) -> ExportStatusResponse: ...
@@ -201,7 +201,7 @@ def export_status(
 ```python
 def find_export(
     *,
-    filter: models.FieldExportsFindGetQuerystringFilterParameter,
+    filter: models.ExportsFindGetQuerystringFilterParameter,
     response_media_type: Literal['application/json'] | None = None,
     options: RequestOptions | None = None,
 ) -> FindExportResponse: ...
@@ -214,7 +214,7 @@ def find_export(
 ```python
 def add_note(
     *,
-    body: models.FieldNotesPostRequest,
+    body: models.NotesPostRequest,
     media_type: Literal['text/plain'] | None = None,
     response_media_type: Literal['application/json'] | None = None,
     options: RequestOptions | None = None,

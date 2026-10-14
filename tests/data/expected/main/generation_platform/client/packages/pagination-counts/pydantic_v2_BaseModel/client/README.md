@@ -125,7 +125,7 @@ def search(
 ```python
 def find(
     *,
-    criteria: models.FieldFindsGetQuerystringCriteriaParameter | UNSET = UNSET,
+    criteria: models.FindsGetQuerystringCriteriaParameter | UNSET = UNSET,
     response_media_type: Literal['application/json'] | None = None,
     options: RequestOptions | None = None,
 ) -> FindResponse: ...

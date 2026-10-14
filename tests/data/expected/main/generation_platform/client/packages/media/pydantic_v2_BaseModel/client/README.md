@@ -80,7 +80,7 @@ The `with_response`, `with_raw_response`, and `with_streaming_response` attribut
 ```python
 def submit_form(
     *,
-    body: models.FieldFormsPostRequest,
+    body: models.FormsPostRequest,
     media_type: Literal['application/x-www-form-urlencoded'] | None = None,
     response_media_type: Literal['application/x-www-form-urlencoded'] | None = None,
     options: RequestOptions | None = None,
@@ -94,7 +94,7 @@ def submit_form(
 ```python
 def submit_profile(
     *,
-    body: models.FieldProfilesPostRequest,
+    body: models.ProfilesPostRequest,
     media_type: Literal['multipart/form-data'] | None = None,
     options: RequestOptions | None = None,
 ) -> SubmitProfileResponse: ...
@@ -119,7 +119,7 @@ def read_profile(
 ```python
 def submit_anything(
     *,
-    body: models.FieldAnythingPostRequest,
+    body: models.AnythingPostRequest,
     media_type: Literal['multipart/form-data'] | None = None,
     options: RequestOptions | None = None,
 ) -> SubmitAnythingResponse: ...
@@ -252,7 +252,7 @@ def submit_labels(
 ```python
 def store_file(
     *,
-    body: models.Address | SyncBinaryBody | models.FieldFilesPostRequest2,
+    body: models.Address | SyncBinaryBody | models.FilesPostRequest2,
     media_type: str | None = None,
     response_media_type: str | None = None,
     options: RequestOptions | None = None,
@@ -283,7 +283,7 @@ def replace_file(
 ```python
 def submit_search(
     *,
-    body: models.FieldSearchesPostRequest,
+    body: models.SearchesPostRequest,
     media_type: Literal['application/x-www-form-urlencoded'] | None = None,
     options: RequestOptions | None = None,
 ) -> SubmitSearchResponse: ...
@@ -309,7 +309,7 @@ def submit_cover(
 ```python
 def submit_card(
     *,
-    body: models.FieldCardsPostRequest,
+    body: models.CardsPostRequest,
     media_type: Literal['multipart/form-data'] | None = None,
     options: RequestOptions | None = None,
 ) -> SubmitCardResponse: ...
@@ -322,7 +322,7 @@ def submit_card(
 ```python
 def submit_stickers(
     *,
-    body: models.FieldStickersPostRequest,
+    body: models.StickersPostRequest,
     media_type: Literal['multipart/form-data'] | None = None,
     options: RequestOptions | None = None,
 ) -> SubmitStickersResponse: ...
@@ -364,7 +364,7 @@ def store_document(
 ```python
 def read_document(
     *,
-    id: models.FieldDocumentsIdGetPathIdParameter,
+    id: models.DocumentsIdGetPathIdParameter,
     filter: JSONValue | UNSET = UNSET,
     X_Mode: str | UNSET = UNSET,
     response_media_type: Literal['application/vnd.api+json'] | None = None,

@@ -163,7 +163,7 @@ def set_owner(
 ```python
 def create_owner(
     *,
-    body: models.FieldOwnersPostRequest | UNSET = UNSET,
+    body: models.OwnersPostRequest | UNSET = UNSET,
     email: str | UNSET = UNSET,
     nickName: str | UNSET = UNSET,
     media_type: Literal['application/json'] | None = None,

@@ -508,7 +508,7 @@ def fastapi_server_examples() -> tuple[DocsExample, ...]:
             (
                 "tutorial.inline-names",
                 lambda: fenced(
-                    "python", excerpt(EXPECTED_TUTORIAL / "app/models.py", "type FieldPetsGet", "type FieldPetsPetId")
+                    "python", excerpt(EXPECTED_TUTORIAL / "app/models.py", "type PetsGetQuery", "type PetsPetIdGet")
                 ),
             ),
             ("howto.openapi", lambda: details("openapi.yaml", "yaml", read_text(HOWTO / "openapi.yaml"))),

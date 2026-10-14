@@ -96,7 +96,7 @@ def list_pets(
 ```python
 def create_pet(
     *,
-    body: models.NewPet | models.FieldPetsPostRequest,
+    body: models.NewPet | models.PetsPostRequest,
     media_type: Literal['application/json', 'text/plain'] | None = None,
     response_media_type: Literal['application/json'] | None = None,
     options: RequestOptions | None = None,

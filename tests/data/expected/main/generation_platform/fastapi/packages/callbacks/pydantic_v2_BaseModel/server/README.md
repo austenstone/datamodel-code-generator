@@ -62,7 +62,7 @@ class Default(DefaultService[object]):
 
     def list_events(
         self,
-    ) -> models.FieldEventsGetResponse | HTTPResult[models.FieldEventsGetResponse | models.Event] | Response:
+    ) -> models.EventsGetResponse | HTTPResult[models.EventsGetResponse | models.Event] | Response:
         """
         Handle GET /events.
         """
@@ -73,7 +73,7 @@ class Default(DefaultService[object]):
         *,
         principal: object,
         token: str | None,
-    ) -> models.Animal | HTTPResult[models.Animal | Any | models.FieldSecureGetResponse] | Response:
+    ) -> models.Animal | HTTPResult[models.Animal | Any | models.SecureGetResponse] | Response:
         """
         Handle GET /secure.
         """
@@ -89,7 +89,7 @@ class Default(DefaultService[object]):
 
     def echo(
         self,
-    ) -> models.FieldEventsGetResponse | HTTPResult[models.FieldEventsGetResponse] | Response:
+    ) -> models.EventsGetResponse | HTTPResult[models.EventsGetResponse] | Response:
         """
         Handle GET /echo.
         """

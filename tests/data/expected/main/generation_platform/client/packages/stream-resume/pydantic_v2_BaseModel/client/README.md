@@ -187,7 +187,7 @@ def stream_marks(
     *,
     tag: str | UNSET = UNSET,
     Last_Event_ID: str | UNSET = UNSET,
-    scope: models.FieldMarksGetQueryScopeParameter | UNSET = UNSET,
+    scope: models.MarksGetQueryScopeParameter | UNSET = UNSET,
     response_media_type: Literal['text/event-stream'] | None = None,
     options: RequestOptions | None = None,
 ) -> StreamMarksResponse: ...
@@ -202,7 +202,7 @@ def stream_named_marks(
     *,
     tag: str | UNSET = UNSET,
     Last_Event_ID: str | UNSET = UNSET,
-    scope: models.FieldNamedMarksGetQueryScopeParameter | UNSET = UNSET,
+    scope: models.NamedMarksGetQueryScopeParameter | UNSET = UNSET,
     response_media_type: Literal['text/event-stream'] | None = None,
     options: RequestOptions | None = None,
 ) -> StreamNamedMarksResponse: ...
@@ -217,7 +217,7 @@ def stream_deep_marks(
     *,
     tag: str | UNSET = UNSET,
     Last_Event_ID: str | UNSET = UNSET,
-    scope: models.FieldDeepMarksGetQueryScopeParameter | UNSET = UNSET,
+    scope: models.DeepMarksGetQueryScopeParameter | UNSET = UNSET,
     response_media_type: Literal['text/event-stream'] | None = None,
     options: RequestOptions | None = None,
 ) -> StreamDeepMarksResponse: ...
@@ -230,7 +230,7 @@ def stream_deep_marks(
 ```python
 def stream_keyed_marks(
     *,
-    keyed: models.FieldKeyedMarksGetQueryKeyedParameter | UNSET = UNSET,
+    keyed: models.KeyedMarksGetQueryKeyedParameter | UNSET = UNSET,
     response_media_type: Literal['text/event-stream'] | None = None,
     options: RequestOptions | None = None,
 ) -> StreamKeyedMarksResponse: ...

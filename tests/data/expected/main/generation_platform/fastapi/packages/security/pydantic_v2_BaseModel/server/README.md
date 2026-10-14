@@ -54,7 +54,7 @@ class Pets(PetsService[object]):
         self,
         *,
         principal: object,
-    ) -> models.FieldPetsGetResponse | HTTPResult[models.FieldPetsGetResponse] | Response:
+    ) -> models.PetsGetResponse | HTTPResult[models.PetsGetResponse] | Response:
         """
         Handle GET /pets.
         """
