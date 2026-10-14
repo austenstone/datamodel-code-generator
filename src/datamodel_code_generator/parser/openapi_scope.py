@@ -497,7 +497,11 @@ class ApiOpenAPIParser(OpenAPIParser):
             return
         with self._schema_frame(name, path, self.raw_obj, raw_schema=raw, role=role):
             ref = raw.get("$ref") if isinstance(raw, dict) else None
-            validated = self._validate_schema_object(raw, path) if isinstance(ref, str) and len(raw) > 1 else None
+            validated = (
+                self._validate_schema_object(raw, path)
+                if isinstance(ref, str) and isinstance(raw, dict) and len(raw) > 1
+                else None
+            )
             if isinstance(ref, str) and not (validated and validated.has_ref_with_schema_keywords):
                 self._declaration_types[declaration] = self._parse_schema_or_ref(
                     name, ReferenceObject.model_validate({"$ref": ref}), path
