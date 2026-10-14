@@ -625,7 +625,8 @@ own names, `limit` and `pet_id`, but a body or response model is a class you imp
 schema under `components.schemas` and refer to it with `$ref`, as the tutorial does for `Pet`, `NewPet`, and `Error`.
 A `$ref` beside only annotations, such as `description`, `title`, `examples`, or `x-` extensions, names that model too,
 as it does for a property; one beside keywords that change its values, such as `minLength` or `nullable`, takes a
-derived name.
+derived name. A parameter or body of such a `$ref` has the type and constraints of the component, as a bare `$ref`
+does, so the service receives the component model, such as `Tags(root=[...])` for a `RootModel` component.
 
 ### Return values and `HTTPResult`
 

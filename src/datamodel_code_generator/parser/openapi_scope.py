@@ -488,17 +488,17 @@ class ApiOpenAPIParser(OpenAPIParser):
     def _acquire_schema(self, name: str, raw: YamlValue, path: list[str], *, role: SchemaRole) -> None:
         """Generate one declaration, retaining actual direct-reference use types.
 
-        A reference whose siblings are only annotations or extensions is used as the model it names, as a property is.
+        A reference whose siblings are only annotations or extensions is used as the model it names, as a property is,
+        except that a reference beside only ``nullable: true`` keeps its derived model here instead of becoming
+        ``Optional``.
         """
         declaration = self._declaration_id(path)
         if declaration in self._processed_declarations:
             return
         with self._schema_frame(name, path, self.raw_obj, raw_schema=raw, role=role):
-            if (
-                isinstance(raw, dict)
-                and isinstance(ref := raw.get("$ref"), str)
-                and (len(raw) == 1 or not self._validate_schema_object(raw, path).has_ref_with_schema_keywords)
-            ):
+            ref = raw.get("$ref") if isinstance(raw, dict) else None
+            validated = self._validate_schema_object(raw, path) if isinstance(ref, str) and len(raw) > 1 else None
+            if isinstance(ref, str) and not (validated and validated.has_ref_with_schema_keywords):
                 self._declaration_types[declaration] = self._parse_schema_or_ref(
                     name, ReferenceObject.model_validate({"$ref": ref}), path
                 )
@@ -511,7 +511,7 @@ class ApiOpenAPIParser(OpenAPIParser):
                     ref=self.model_resolver.join_path(tuple(path)),
                 )
             else:
-                self.parse_raw_obj(name, raw, path)
+                self._parse_raw_or_validated_obj(name, raw, path, validated)
             self._processed_declarations.add(declaration)
 
     def _acquire_item_schema(
