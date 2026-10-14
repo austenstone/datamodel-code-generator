@@ -13,10 +13,12 @@ The [runtime reference](_generated_docs/runtime.md) describes the settings, defa
 from client import Client
 
 with Client(base_url="https://api.example.com") as client:
-    result = client.rooms.room_socket(room="...")
+    with client.protocols.rooms.chat.connect(room="...") as session:
+        for message in session:
+            print(message.data)
 ```
 
-`AsyncClient` has the same resources and methods, and each method is a coroutine:
+`AsyncClient` has the same protocol helpers, used with `async with` and `async for`:
 
 ```python
 from client import AsyncClient
@@ -24,11 +26,13 @@ from client import AsyncClient
 
 async def main() -> None:
     async with AsyncClient(base_url="https://api.example.com") as client:
-        result = await client.rooms.room_socket(room="...")
+        async with client.protocols.rooms.chat.connect(room="...") as session:
+            async for message in session:
+                print(message.data)
 ```
 
 Replace each `...` with a value of the type its argument declares; [Operations](#operations) lists the arguments of each method.
-A method returns the decoded body of a success response, of the type its signature declares.
+No operation of the API is a plain request and response, so the example calls `rooms.room_socket` through its protocol helper `rooms.chat`, as [Protocol helpers](#protocol-helpers) describes.
 Leaving the `with` or `async with` block closes the client, as `close()` or `aclose()` does; keep a streaming response only inside its own context.
 Import options, errors, and response types from the public modules of the package.
 `request_raw(method, url)` of a client sends a request outside the operations to an absolute URL and returns its raw response.
@@ -52,7 +56,9 @@ from client.errors import APIConnectionError, APIStatusError, NotFoundError
 
 with Client(base_url="https://api.example.com") as client:
     try:
-        result = client.rooms.room_socket(room="...")
+        with client.protocols.rooms.chat.connect(room="...") as session:
+            for message in session:
+                print(message.data)
     except NotFoundError as error:
         print("not found:", error.body)
     except APIStatusError as error:

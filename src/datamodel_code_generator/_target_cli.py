@@ -281,6 +281,7 @@ def _target_json(
 ) -> str:
     """Emit rendered model and target text, read like their published files, with the existing generation payload.
 
+    The files include the initializer of a `services` package a server takes over, whose docstring the run rewrites.
     As in the model payload, a path is relative to the model output directory; a file outside it has an absolute path.
     The payload's target names the package, its runtime dependencies, and the next steps with paths of the same base.
     """
@@ -294,6 +295,7 @@ def _target_json(
         generation_output_json,
     )
 
+    taken = _taken_over(project)
     artifacts = [
         (
             artifact.path,
@@ -301,7 +303,7 @@ def _target_json(
             encoding if artifact.kind == "model" or artifact.path.suffix in {".py", ".pyi"} else "utf-8",
         )
         for artifact in project.artifacts
-        if artifact.kind in {"model", "target"} and (content := artifact.content) is not None
+        if (artifact.kind in {"model", "target"} or artifact is taken) and (content := artifact.content) is not None
     ]
     base = _payload_base(project, models)
     files = [
@@ -357,8 +359,10 @@ def _compare_target(
 ) -> OutputComparison:
     """Compare rendered text and Python output roots through the model comparison path.
 
-    Labels stay relative to the working directory; each difference names its file like the generation payload. With
-    a `baseline` rendered from another input, the comparison is an input diff against its files instead of the output.
+    Labels stay relative to the working directory; each difference names its file like the generation payload. The
+    initializer of a `services` package a server takes over is compared at its path, as the docstring the run rewrites.
+    With a `baseline` rendered from another input, the comparison is an input diff against its files instead of the
+    output.
     """
     from tempfile import TemporaryDirectory  # noqa: PLC0415
 
@@ -379,6 +383,7 @@ def _compare_target(
             (staged := _existing(artifact.path, baseline_root)).parent.mkdir(parents=True, exist_ok=True)
             staged.write_bytes(artifact.content)
         rendered = [*project.artifacts, *(() if baseline is None else baseline.artifacts)]
+        comparisons: list[tuple[Path, Path, bool, str]] = []
         for kind, output, is_directory in (("model", models, base == models), ("target", target, True)):
             if not is_directory and not any(artifact.kind == kind for artifact in rendered):
                 continue
@@ -400,31 +405,60 @@ def _compare_target(
                 if is_directory and path.suffix != ".py":
                     non_python.append((staged, path, encoding if artifact.kind == "model" else "utf-8"))
             _stage_implementations(project, output if is_directory and baseline is None else None, staged_root)
-            comparisons = [(staged_root if is_directory else staged_root / output.name, output, is_directory, encoding)]
+            comparisons.append((
+                staged_root if is_directory else staged_root / output.name,
+                output,
+                is_directory,
+                encoding,
+            ))
             comparisons.extend((staged, path, False, codec) for staged, path, codec in non_python)
-            for generated, actual, directory_output, codec in comparisons:
-                try:
-                    compared = _compare_generated_outputs(
-                        generated,
-                        _existing(actual, baseline_root),
-                        codec,
-                        OutputComparisonOptions(
-                            is_directory_output=directory_output,
-                            input_diff=baseline is not None,
-                            single_file_display_path=_shown(actual),
-                            directory_display_path=_shown(actual),
-                        ),
-                    )
-                except UnicodeError as error:
-                    message = f"{_shown(actual)}: Output is not text in encoding {codec!r}: {error}"
-                    raise Error(message) from error
-                differences.extend(
-                    difference.model_copy(update={"path": shown(cwd / difference.path, base).as_posix()})
-                    for difference in compared.differences
+        comparisons.extend(() if baseline is not None else _staged_take_over(project, staging / "services", encoding))
+        for generated, actual, directory_output, codec in comparisons:
+            try:
+                compared = _compare_generated_outputs(
+                    generated,
+                    _existing(actual, baseline_root),
+                    codec,
+                    OutputComparisonOptions(
+                        is_directory_output=directory_output,
+                        input_diff=baseline is not None,
+                        single_file_display_path=_shown(actual),
+                        directory_display_path=_shown(actual),
+                    ),
                 )
-                if content := compared.content:
-                    contents.append(content if content.endswith("\n") else content + "\n")
+            except UnicodeError as error:
+                message = f"{_shown(actual)}: Output is not text in encoding {codec!r}: {error}"
+                raise Error(message) from error
+            differences.extend(
+                difference.model_copy(update={"path": shown(cwd / difference.path, base).as_posix()})
+                for difference in compared.differences
+            )
+            if content := compared.content:
+                contents.append(content if content.endswith("\n") else content + "\n")
     return OutputComparison(differences=differences, content="".join(contents))
+
+
+def _staged_take_over(project: GeneratedProject, staging: Path, encoding: str) -> list[tuple[Path, Path, bool, str]]:
+    """Stage the initializer of a `services` package a server takes over, to compare it with the file at its path."""
+    if (taken := _taken_over(project)) is None:
+        return []
+    staging.mkdir()
+    (staged := staging / taken.path.name).write_bytes(taken.content)
+    return [(staged, taken.path, False, encoding)]
+
+
+def _taken_over(project: GeneratedProject) -> GeneratedArtifact | None:
+    """Return the initializer of the `services` package a server takes over, which the run writes although it exists.
+
+    Every other implementation the run writes is a module that is missing.
+    """
+    if project.next_steps.taken_over is None:
+        return None
+    return next(
+        artifact
+        for artifact in project.artifacts
+        if artifact.kind == "implementation" and artifact.action == "write" and artifact.path.name == "__init__.py"
+    )
 
 
 def _generated(project: GeneratedProject) -> Iterator[GeneratedArtifact]:
@@ -464,12 +498,19 @@ def _existing(path: Path, baseline_root: Path | None) -> Path:
 def _next_step(target: TargetConfig, project: GeneratedProject, implied: str | None) -> str:
     """Return the uv command that adds the generated package's runtime dependencies, then what to do next.
 
-    The notice of the settings the target implied, if any, comes first. A server names the modules to implement,
-    marking those the run creates, and how to run its entrypoint; a client shows a call of its first operation. Both
-    name their README.
+    The notice of the settings the target implied, if any, comes first. A server that takes a `services` package over
+    says so, since the modules of the package still import the server package it took it from. A server names the
+    modules to implement, marking those the run creates, and how to run its entrypoint; a client shows a call of its
+    first operation. Both name their README.
     """
     arguments = " ".join(f'"{dependency}"' for dependency in project.dependencies)
     lines = [f"Add the runtime dependencies of {target.package} to your project:", f"  uv add {arguments}"]
+    if (taken := _taken_over(project)) is not None:
+        old, new = project.next_steps.taken_over, target.package
+        lines.append(
+            f"{_shown(taken.path)} now names {new} instead of {old}: "
+            f"update the imports of the services modules from {old} to {new}."
+        )
     return "\n".join((*((implied,) if implied else ()), *lines, *_steps(project.next_steps)))
 
 

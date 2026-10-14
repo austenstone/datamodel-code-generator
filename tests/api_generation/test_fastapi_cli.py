@@ -1762,21 +1762,29 @@ def test_fastapi_cli_shared_parent_runs(
 
 
 @pytest.mark.parametrize(
-    ("first", "second", "output"),
+    ("first", "second", "output", "named"),
     [
-        (("app.server", "app.models", "app/models.py"), ("app.api", "app.models", "app/models.py"), "app/api"),
+        (("app.server", "app.models", "app/models.py"), ("app.api", "app.models", "app/models.py"), "app/api", None),
         (
             ("src.app.server", "src.app.models", "src/app/models.py"),
             ("app.server", "app.models", "src/app/models.py"),
             "src/app/server",
+            None,
+        ),
+        (
+            ("app.server", "app.models", "app/models.py"),
+            ("app.server", "app.models", "app/models.py"),
+            "app/server",
+            "app.old",
         ),
     ],
-    ids=["renamed", "import-root"],
+    ids=["renamed", "import-root", "named-gone"],
 )
 def test_fastapi_cli_services_taken_over(
     first: tuple[str, str, str],
     second: tuple[str, str, str],
     output: str,
+    named: str | None,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -1784,16 +1792,17 @@ def test_fastapi_cli_services_taken_over(
     """Leave the `services` package to a server package renamed or moved, or spelled from another import root.
 
     The package the docstring of the `services` initializer names is gone, or is this server package, so the run
-    rewrites the docstring to name this one and keeps the rest of the file; another server package beside it is then
-    refused by the new name.
+    rewrites the docstring to name this one and keeps the rest of the file, a UTF-8 BOM included, and says so on
+    stderr; another server package beside it is then refused by the new name. A check reports the initializer the run
+    rewrites, and the JSON payload of the run lists it, also when the docstring names a package that was never there.
     """
     monkeypatch.chdir(tmp_path)
     _copy(tmp_path)
 
-    def run(package: str, models: str, module: str, directory: str, expected_exit: Exit = Exit.OK) -> None:
+    def run(package: str, models: str, module: str, directory: str, *extra: str, expected_exit: Exit = Exit.OK) -> None:
         run_main_with_args(
             [
-                *("--input", "pets.yaml", "--input-file-type", "openapi", "--output", module),
+                *("--input", "pets.yaml", "--input-file-type", "openapi", "--output", module, *extra),
                 *_server("--server-package", package, "--server-model-package", models, output=directory),
             ],
             expected_exit=expected_exit,
@@ -1802,17 +1811,74 @@ def test_fastapi_cli_services_taken_over(
     run(*first, first[0].replace(".", "/"))
     services = tmp_path / output.rpartition("/")[0] / "services"
     initializer = services / "__init__.py"
-    initializer.write_text(f"{initializer.read_text(encoding='utf-8')}\n# Yours\n", encoding="utf-8")
+    text = f"{initializer.read_text(encoding='utf-8')}\n# Yours\n"
+    if named is not None:
+        text = "\ufeff" + text.replace(first[0], named)
+    initializer.write_text(text, encoding="utf-8")
     if output != (moved := first[0].replace(".", "/")):
         shutil.move(tmp_path / moved, tmp_path / output)
     capsys.readouterr()
-    run(*second, output)
-    taken = capsys.readouterr().err
+    run(*second, output, "--check", expected_exit=Exit.DIFF)
+    capsys.readouterr()
+    run(*second, output, "--check", "--output-format", "json", expected_exit=Exit.DIFF)
+    checked = json.loads(capsys.readouterr().out)
+    lines = [f"check success {checked['success']}"]
+    lines.extend(f"difference {item['kind']} {item['path']}" for item in checked["differences"])
+    run(*second, output, "--output-format", "json")
+    generated = capsys.readouterr()
+    written = initializer.read_bytes()
+    lines.extend(
+        f"json file {item['path']} as written {item['content'].encode() == written}"
+        for item in json.loads(generated.out)["files"]
+        if item["path"].startswith("services/")
+    )
+    lines.append(f"BOM kept {written.startswith(chr(0xFEFF).encode())}")
     other = f"{second[0].rpartition('.')[0]}.other"
-    run(other, second[1], second[2], output.replace(output.rpartition("/")[2], "other"), Exit.ERROR)
+    run(other, second[1], second[2], output.replace(output.rpartition("/")[2], "other"), expected_exit=Exit.ERROR)
     assert_output(
-        f"{taken}{initializer.read_text(encoding='utf-8')}{capsys.readouterr().err}",
+        "\n".join(lines) + f"\n{generated.err}{written.decode().lstrip(chr(0xFEFF))}{capsys.readouterr().err}",
         EXPECTED / "cli" / "services-taken-over" / f"{output.replace('/', '-')}.txt",
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "server_output", "change"),
+    [("other-directory", "app/srv", None), ("main-deleted", "app/server", "main.py"), ("bom", "app/server", "bom")],
+)
+def test_fastapi_cli_services_owner_in_place(
+    case: str,
+    server_output: str,
+    change: str | None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Refuse a server package beside one generated before, wherever its directory and whatever is left of it.
+
+    The generated initializer of a server package names it, so the other package is found in a directory of another
+    name and without its `main.py`, which an application of your own may replace, and a UTF-8 BOM before the docstring
+    of the `services` initializer still names its owner.
+    """
+    monkeypatch.chdir(tmp_path)
+    _copy(tmp_path)
+
+    def run(package: str, output: str, expected_exit: Exit = Exit.OK) -> None:
+        arguments = ["--input", "pets.yaml", "--input-file-type", "openapi", "--output", "app/models.py"]
+        server = _server("--server-package", package, "--server-model-package", "app.models", output=output)
+        run_main_with_args([*arguments, *server], expected_exit=expected_exit)
+
+    run("app.server", server_output)
+    if change == "main.py":
+        (tmp_path / server_output / "main.py").unlink()
+    elif change == "bom":
+        initializer = tmp_path / "app" / "services" / "__init__.py"
+        initializer.write_bytes(chr(0xFEFF).encode() + initializer.read_bytes())
+    capsys.readouterr()
+    run("app.server_b", "app/server_b", Exit.ERROR)
+    written = (tmp_path / "app" / "server_b").exists()
+    assert_output(
+        f"{capsys.readouterr().err}app/server_b written: {written}\n",
+        EXPECTED / "cli" / "services-owner-in-place" / f"{case}.txt",
     )
 
 

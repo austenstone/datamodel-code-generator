@@ -13,10 +13,12 @@ The [runtime reference]({{ reference }}) describes the settings, defaults, owner
 from {{ package }} import Client
 
 with Client({{ example.arguments }}) as client:
-    result = {{ example.call }}
+{%- for line in example.calls %}
+    {{ line }}
+{%- endfor %}
 ```
 
-`AsyncClient` has the same resources and methods, and each method is a coroutine:
+{% if example.helper %}`AsyncClient` has the same protocol helpers, used with `async with` and `async for`:{% else %}`AsyncClient` has the same resources and methods, and each method is a coroutine:{% endif %}
 
 ```python
 from {{ package }} import AsyncClient
@@ -24,12 +26,18 @@ from {{ package }} import AsyncClient
 
 async def main() -> None:
     async with AsyncClient({{ example.arguments }}) as client:
-        result = await {{ example.call }}
+{%- for line in example.awaited %}
+        {{ line }}
+{%- endfor %}
 ```
 {% if example.placeholders %}
 Replace each `...` with a value of the type its argument declares; [Operations](#operations) lists the arguments of each method.
 {%- endif %}
+{%- if example.helper %}
+No operation of the API is a plain request and response, so the example calls `{{ example.operation }}` through its protocol helper `{{ example.helper }}`, as [Protocol helpers](#protocol-helpers) describes.
+{%- else %}
 A method returns the decoded body of a success response, of the type its signature declares.
+{%- endif %}
 {%- else %}
 The package has no operations, so `Client` and `AsyncClient` have no resource methods.
 {%- endif %}
@@ -59,7 +67,9 @@ from {{ package }}.errors import APIConnectionError, APIStatusError, NotFoundErr
 
 with Client({{ example.arguments }}) as client:
     try:
-        result = {{ example.call }}
+{%- for line in example.calls %}
+        {{ line }}
+{%- endfor %}
     except NotFoundError as error:
         print("not found:", error.body)
     except APIStatusError as error:

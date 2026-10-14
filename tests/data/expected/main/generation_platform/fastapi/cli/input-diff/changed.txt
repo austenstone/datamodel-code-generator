@@ -274,22 +274,22 @@ REMOVED: server/routers/owners.py (generated only from baseline input)
  
  `operation_dependencies` takes the method names, the keys of `OperationDependencies`; the per-operation generation settings, such as `--server-handler-modes`, take the operation references.
  
-@@ -179,19 +179,19 @@
- from fastapi.testclient import TestClient
+@@ -180,19 +180,19 @@
  
  from server import create_app
--from server.services import PetsService, OwnersService
-+from server.services import PetsService, StoreService
+ from services.pets import Pets
+-from services.owners import Owners
++from services.store import Store
  
  
- class FakePets(PetsService):
-     """Implement `list_pets`, `create_pet`, `list_my_pets`, `get_pet`, and `delete_pet`."""
+ class FakePets(Pets):
+     """Override the methods the test calls, such as `list_pets`."""
  
  
--class FakeOwners(OwnersService):
--    """Implement `list_owners`."""
-+class FakeStore(StoreService):
-+    """Implement `get_inventory`."""
+-class FakeOwners(Owners):
+-    """Override the methods the test calls, such as `list_owners`."""
++class FakeStore(Store):
++    """Override the methods the test calls, such as `get_inventory`."""
  
  
  def test_app() -> None:
@@ -298,7 +298,7 @@ REMOVED: server/routers/owners.py (generated only from baseline input)
          ...
  ```
  
-@@ -203,10 +203,10 @@
+@@ -204,10 +204,10 @@
  
  from server import build_router
  from services.pets import Pets

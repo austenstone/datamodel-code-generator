@@ -32,8 +32,6 @@ if TYPE_CHECKING:
 
 USER = SOURCE / "entrypoint"
 PYTHON = re.compile(r"^```python\n(.*?)^```$", re.MULTILINE | re.DOTALL)
-FAKE = re.compile(r"^class Fake(\w+)\(", re.MULTILINE)
-STUB = re.compile(r"^from (?:\w+\.)*services\.\w+ import .*\n", re.MULTILINE)
 SECURED_NAMES = {"tag:public": "service", "default": "operations"}
 MODEL: dict[str, Any] = {
     "input_file_type": "openapi",
@@ -161,9 +159,8 @@ def fastapi_entrypoint_report(root: Path) -> tuple[str, dict[tuple[str, ...], st
 def readme_examples_report(root: Path) -> str:
     """Run the Python examples of the READMEs of an unsecured and a secured server as a reader copies them.
 
-    The test example runs with pytest. Its fakes implement no method, standing for the reader's, so each takes the
-    methods of the stub generation wrote for its group, which the example of the router imports. The example of the
-    router builds its application, whose routes the report lists.
+    The test example runs with pytest as printed: its fakes subclass the classes of the modules generation wrote with
+    stubs. The example of the router builds its application, whose routes the report lists.
     """
     lines: list[str] = []
     for name, source, package, models, settings in (
@@ -174,8 +171,7 @@ def readme_examples_report(root: Path) -> str:
         _generate(directory, source, package, models, **settings)
         readme = directory.joinpath(*package.split("."), "README.md").read_text(encoding="utf-8")
         test, router = PYTHON.findall(readme.partition("\n## Implementing the services\n")[2].partition("\n## ")[0])
-        stubs = "".join(STUB.findall(router))
-        (directory / "test_readme.py").write_text(stubs + FAKE.sub(r"class Fake\1(\1, ", test), encoding="utf-8")
+        (directory / "test_readme.py").write_text(test, encoding="utf-8")
         (directory / "router_app.py").write_text(f"{router}\nprint(sorted(app.openapi()['paths']))\n", encoding="utf-8")
         lines.extend((
             f"# {package}",

@@ -846,6 +846,21 @@ def _stub(name: str, parameters: Iterable[Parameter], returns: str) -> str:
     return "\n".join((f"def {name}(", "    *,", *lines, f") -> {returns}: ..."))
 
 
+def _opened(name: str, keywords: str, *, stream: bool) -> tuple[list[str], list[str]]:
+    """Return the statements that open a WebSocket or stream helper and read what it receives, without and with await.
+
+    A WebSocket helper's `connect` is entered with `with` or `async with`, and a stream helper's `open` returns the
+    stream, which an asynchronous helper awaits before the block enters it.
+    """
+    target = f"client.protocols.{name}.{'open' if stream else 'connect'}({keywords})"
+    value, item = ("stream", "event") if stream else ("session", "message")
+    loop, read = f"for {item} in {value}:", f"        print({item}.data)"
+    return (
+        [f"with {target} as {value}:", f"    {loop}", read],
+        [f"async with {'await ' if stream else ''}{target} as {value}:", f"    async {loop}", read],
+    )
+
+
 def _example(argument: _Argument, spec: OperationSpec) -> str:
     """Return the value a README's call gives a required keyword: a literal of its type or media, or `...`."""
     if argument.name == "media_type" and spec.body is not None:
@@ -1316,6 +1331,18 @@ class _Resources(_Typing):
                 },
                 tuple(keywords),
             )
+
+    def helper_keywords(self, spec: OperationSpec, *, body: bool) -> tuple[str, ...]:
+        """Return the keywords a README's call of a protocol helper of an operation gives, as `summaries` does.
+
+        The helper takes the operation's parameters, and a stream helper, with `body`, also its body, never its fields.
+        """
+        module = self.resource_module(next(item for item in self.plan.resources if item.namespace == spec.resource), "")
+        operation = replace(spec, fields=())
+        arguments = [self.parameter(module, parameter) for parameter in operation.parameters]
+        if body:
+            arguments.extend(self.requests(module, operation, asynchronous=False)[1])
+        return tuple(f"{item.name}={_example(item, spec)}" for item in arguments if item.default == "required")
 
     def resource(self, resource: ResourceSpec, *, asynchronous: bool) -> Templated:
         """Return a resource module: the resource and its metadata, raw, and streaming views of every operation."""
@@ -3179,7 +3206,7 @@ class ClientRenderer:
             package=config.package,
             public_modules=f"{', '.join(public)}, and response types",
             reference="_generated_docs/runtime.md",
-            example=self.example([keywords for _, keywords in summaries]) if summaries else None,
+            example=self.example([keywords for _, keywords in summaries], resources) if summaries else None,
             credentials=[CredentialLabel(item.name, _KIND_LABELS[item.scheme.kind]) for item in self.plan.credentials],
             signature_style=config.signature_style,
             body_arguments=config.body_arguments,
@@ -3201,35 +3228,56 @@ class ClientRenderer:
             runtime=[{"package": package, "modules": modules} for package, modules in groups.items()],
         )
 
-    def example(self, keywords: list[tuple[str, ...]]) -> dict[str, object]:
-        """Return the README's call of an operation: the client's arguments, the call, and what they assume.
+    def example(self, keywords: list[tuple[str, ...]], resources: _Resources) -> dict[str, object]:
+        """Return the README's use of an operation: the client's arguments, the statements, and what they assume.
 
-        The operation is the first that is neither the handshake of a WebSocket helper nor one whose success bodies are
-        all event streams or NDJSON, or the first of all without one. The client sends to its default server with the
-        credentials of its first security alternative. `keywords` holds the keywords each operation requires, in
-        operation order, `...` standing for each value without a literal.
+        The client sends to the operation's default server with the credentials of its first security alternative.
+        `keywords` holds the keywords each operation requires, in operation order, `...` standing for each value
+        without a literal; `calls` holds the synchronous statements and `awaited` the asynchronous ones.
         """
-        sockets = {item.operation.index for item in self.sockets}
-        operations = self.plan.operations
-        index = next(
-            (index for index, spec in enumerate(operations) if spec.index not in sockets and not stream_only(spec)),
-            0,
-        )
-        spec = operations[index]
+        index, helper = self.example_operation()
+        spec = self.plan.operations[index]
         server = spec.servers[0].default_url
         names = {item.scheme.name: item.name for item in self.plan.credentials}
         alternative = spec.security.alternatives[0] if spec.security is not None and spec.security.alternatives else ()
         secured = [f"{names[item.scheme.name]}={_CREDENTIAL_VALUES[item.scheme.kind]}" for item in alternative]
         arguments = ", ".join((f"base_url={json.dumps(server)}", *secured))
-        call = f"client.{spec.resource}.{spec.name}({', '.join(keywords[index])})"
+        if helper is None:
+            call = f"client.{spec.resource}.{spec.name}({', '.join(keywords[index])})"
+            calls, awaited = [f"result = {call}"], [f"result = await {call}"]
+        else:
+            name, stream = helper
+            calls, awaited = _opened(name, ", ".join(resources.helper_keywords(spec, body=stream)), stream=stream)
         return {
             "operation": f"{spec.resource}.{spec.name}",
             "server": server,
             "arguments": arguments,
-            "call": call,
+            "calls": calls,
+            "awaited": awaited,
+            "helper": None if helper is None else helper[0],
             "secured": bool(secured),
-            "placeholders": "..." in arguments + call,
+            "placeholders": "..." in arguments + calls[0],
         }
+
+    def example_operation(self) -> tuple[int, tuple[str, bool] | None]:
+        """Return the position of the operation the README uses, and the helper it uses it through, if any.
+
+        The operation is the first that is neither the handshake of a WebSocket helper nor one whose success bodies are
+        all event streams or NDJSON. Without one, it is the first operation that has a WebSocket or stream helper,
+        used through its first helper, named with whether it is a stream helper; or else the first of all.
+        """
+        sockets = {item.operation.index for item in self.sockets}
+        operations = self.plan.operations
+        plain = (index for index, spec in enumerate(operations) if spec.index not in sockets and not stream_only(spec))
+        if (index := next(plain, None)) is not None:
+            return index, None
+        opened: dict[int, tuple[str, bool]] = {}
+        for item in self.sockets:
+            opened.setdefault(item.operation.index, (item.helper.name, False))
+        for item in self.streams:
+            opened.setdefault(item.operation.index, (item.helper.name, True))
+        index = next((index for index, spec in enumerate(operations) if spec.index in opened), 0)
+        return index, opened.get(operations[index].index)
 
     def _accepted_encodings(self) -> dict[str, list[str]]:
         """Return the request codings each operation accepts, by its resource and method name."""

@@ -329,6 +329,7 @@ def test_client_helper_spellings(first: str, second: str, tmp_path: Path) -> Non
         "uploads",
         "streams",
         "ndjson",
+        "ndjson-split",
         "stream-resume",
         "sockets",
         "caching",
@@ -348,12 +349,12 @@ def test_client_documentation(case: str, tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize("case", ["pets", "auth", "streams", "sockets"])
+@pytest.mark.parametrize("case", ["pets", "auth", "streams", "sockets", "ndjson-split"])
 def test_client_readme_examples(case: str, tmp_path: Path) -> None:
     """Run the quick start, asynchronous, and error examples of a client README as far as they run without an API.
 
-    The quick start calls the first operation that is a plain request and response; a client whose operations all
-    open WebSockets calls the first.
+    The quick start calls the first operation that is a plain request and response; a client without one opens the
+    first operation that has a WebSocket or stream helper through that helper, as WebSockets and streams are read.
     """
     assert_output(client_readme_report(case, tmp_path), EXPECTED / "readme-examples" / f"{case}.txt")
 

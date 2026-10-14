@@ -344,6 +344,9 @@
         },
         "/paths/~1pets~1{petId}/get": {
           "resource": "lookup.JSONValue"
+        },
+        "/paths/~1pets~1{petId}/delete": {
+          "resource": "lookup.Aux"
         }
       }
     }

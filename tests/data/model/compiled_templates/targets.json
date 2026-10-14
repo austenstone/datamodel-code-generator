@@ -870,7 +870,13 @@
             "operation": "pets.get",
             "server": "https://api.example.com/v1",
             "arguments": "base_url=\"https://api.example.com/v1\", bearer=\"...\"",
-            "call": "client.pets.get(petId=\"...\")",
+            "calls": [
+              "result = client.pets.get(petId=\"...\")"
+            ],
+            "awaited": [
+              "result = await client.pets.get(petId=\"...\")"
+            ],
+            "helper": null,
             "secured": true,
             "placeholders": true
           },
@@ -1037,7 +1043,13 @@
             "operation": "pets.get",
             "server": "https://api.example.com/v1",
             "arguments": "base_url=\"https://api.example.com/v1\"",
-            "call": "client.pets.get(petId=1)",
+            "calls": [
+              "result = client.pets.get(petId=1)"
+            ],
+            "awaited": [
+              "result = await client.pets.get(petId=1)"
+            ],
+            "helper": null,
             "secured": false,
             "placeholders": false
           },
@@ -1155,7 +1167,17 @@
             "operation": "pets.get",
             "server": "https://api.example.com/v1",
             "arguments": "base_url=\"https://api.example.com/v1\"",
-            "call": "client.pets.get(petId=1)",
+            "calls": [
+              "with client.protocols.pets.events.open(petId=1) as stream:",
+              "    for event in stream:",
+              "        print(event.data)"
+            ],
+            "awaited": [
+              "async with await client.protocols.pets.events.open(petId=1) as stream:",
+              "    async for event in stream:",
+              "        print(event.data)"
+            ],
+            "helper": "pets.events",
             "secured": false,
             "placeholders": false
           },
@@ -1271,7 +1293,13 @@
             "operation": "pets.get",
             "server": "https://api.example.com/v1",
             "arguments": "base_url=\"https://api.example.com/v1\"",
-            "call": "client.pets.get(petId=1)",
+            "calls": [
+              "result = client.pets.get(petId=1)"
+            ],
+            "awaited": [
+              "result = await client.pets.get(petId=1)"
+            ],
+            "helper": null,
             "secured": false,
             "placeholders": false
           },
@@ -2644,19 +2672,18 @@
               "credential": "API key"
             }
           ],
-          "protocols": "Pets, Other",
           "services": [
             {
+              "module": "app.services.default",
+              "name": "Default",
               "implementation": "Default",
-              "protocol": "Pets",
-              "secured": true,
-              "methods": "get and create"
+              "method": "get"
             },
             {
+              "module": "app.services.other",
+              "name": "Default",
               "implementation": "Default_1",
-              "protocol": "Other",
-              "secured": false,
-              "methods": "list"
+              "method": "list"
             }
           ],
           "arguments": "default=Default(), other=Default_1(), authorize=authorize",
@@ -2711,7 +2738,6 @@
           "backend": "pydantic_v2.BaseModel",
           "operations": [],
           "schemes": [],
-          "protocols": "",
           "services": [],
           "arguments": "",
           "forms": false,

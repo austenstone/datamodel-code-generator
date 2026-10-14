@@ -1254,12 +1254,15 @@ of `services/__init__.py` records the server package that owns the `services` pa
 to one server: generation refuses a second server package beside the first, in a later run or in the same batch,
 since its `main.py` would import the same `services` package; give each server package a parent package of its own.
 A server package that you rename or move within its parent package, or name from another import root, such as
-`app.server` after `src.app.server`, takes the `services` package over once the server package the docstring names no
-longer has a `main.py` there, and generation rewrites that name in the docstring; to hand the package over while the
-other server package stays, edit the name in the docstring yourself. Generation also refuses a module named `services.py`
-beside the server package, a module of yours or the models, since Python would import only one of it and the
-`services` package. An application of your own, such as one with a `lifespan`, also belongs
-outside the package and calls `create_app` itself. `--check` treats every `.py` file under `--server-output` as
+`app.server` after `src.app.server`, takes the `services` package over once no generated server package beside it has
+the name the docstring names, whatever its directory or whether its `main.py` is still there. Generation then rewrites
+that name in the docstring, `--check` reports the change, and the run prints a notice that names both packages; to hand
+the package over while the other server package stays, edit the name in the docstring yourself. Generation never
+rewrites the modules of the `services` package, which still import the server package they were written for, such as
+`from app.server.services import PetsService` after a rename to `app.api`: update those imports yourself.
+Generation also refuses a module named `services.py` beside the server package, a module of yours or the models, since
+Python would import only one of it and the `services` package. An application of your own, such as one with a
+`lifespan`, also belongs outside the package and calls `create_app` itself. `--check` treats every `.py` file under `--server-output` as
 generated, lists a file that is no longer generated as an extra file, and a file at a path the package needs is
 overwritten.
 
@@ -1624,7 +1627,7 @@ module's import block:
 | `implementation.jinja2` | `imports`, `protocol`, `services`, `entrypoint`, `name`, `base`, `methods`, `protocol_methods` |
 | `main.jinja2` | `imports`, `app`, `services`, `implementations`, `missing`, `table`, `create_app`, `arguments` |
 | `openapi.jinja2` | none |
-| `readme.jinja2` | `title`, `package`, `model_package`, `backend`, `operations`, `services`, `protocols`, `services_package`, `owned`, `app`, `top_level`, `arguments`, `fakes`, `dependencies`, `schemes`, `forms`, `raw_request` |
+| `readme.jinja2` | `title`, `package`, `model_package`, `backend`, `operations`, `services`, `services_package`, `owned`, `app`, `top_level`, `arguments`, `fakes`, `dependencies`, `schemes`, `forms`, `raw_request` |
 | `router.jinja2` | `imports`, `docstring`, `routes`, `api_router`, `wiring`, `final`, `literal`, `templated`, `builder`, `group`, `build`, `services`, `settings` |
 | `security.jinja2` | `imports`, `schemes`, `exports` |
 | `services.jinja2` | `imports`, `typevar`, `abstract`, `protocol_type`, `protocols` |

@@ -63,18 +63,20 @@ def namespace_problem(value: object) -> str | None:
     """Return why a resource namespace is invalid, or None for dotted identifiers that name no member or device.
 
     Its first part also names the resource's package in the `types` package, so it cannot be a name `types` exports.
+    The refusal says why the name is reserved.
     """
     if not isinstance(value, str) or not all(explicit_name(part) for part in value.split(".")):
         return "A resource namespace must be dotted Python identifiers"
-    if reserved := next(
-        (
-            part
-            for index, part in enumerate(value.split("."))
-            if part in RESERVED_MEMBERS or part.casefold() in WINDOWS_DEVICES or (not index and part in TYPE_EXPORTS)
-        ),
-        None,
-    ):
-        return f"A resource namespace cannot use the reserved name {reserved!r}"
+    for index, part in enumerate(value.split(".")):
+        if part in RESERVED_MEMBERS:
+            reason = "a member of the clients and their resources"
+        elif part.casefold() in WINDOWS_DEVICES:
+            reason = "a device name on Windows"
+        elif not index and part in TYPE_EXPORTS:
+            reason = "which the `types` package exports"
+        else:
+            continue
+        return f"A resource namespace cannot use the reserved name {part!r}, {reason}"
     return None
 
 

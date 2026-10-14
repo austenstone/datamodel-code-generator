@@ -1168,10 +1168,12 @@ The [runtime reference](_generated_docs/runtime.md) describes the settings, defa
 from client import Client
 
 with Client(base_url="https://api.example.com/v1") as client:
-    result = client.pets.get(petId=1)
+    with client.protocols.pets.events.open(petId=1) as stream:
+        for event in stream:
+            print(event.data)
 ```
 
-`AsyncClient` has the same resources and methods, and each method is a coroutine:
+`AsyncClient` has the same protocol helpers, used with `async with` and `async for`:
 
 ```python
 from client import AsyncClient
@@ -1179,10 +1181,12 @@ from client import AsyncClient
 
 async def main() -> None:
     async with AsyncClient(base_url="https://api.example.com/v1") as client:
-        result = await client.pets.get(petId=1)
+        async with await client.protocols.pets.events.open(petId=1) as stream:
+            async for event in stream:
+                print(event.data)
 ```
 
-A method returns the decoded body of a success response, of the type its signature declares.
+No operation of the API is a plain request and response, so the example calls `pets.get` through its protocol helper `pets.events`, as [Protocol helpers](#protocol-helpers) describes.
 Leaving the `with` or `async with` block closes the client, as `close()` or `aclose()` does; keep a streaming response only inside its own context.
 Import options, bodies, errors, and response types from the public modules of the package.
 `request_raw(method, url)` of a client sends a request outside the operations to an absolute URL and returns its raw response.
@@ -1203,7 +1207,9 @@ from client.errors import APIConnectionError, APIStatusError, NotFoundError
 
 with Client(base_url="https://api.example.com/v1") as client:
     try:
-        result = client.pets.get(petId=1)
+        with client.protocols.pets.events.open(petId=1) as stream:
+            for event in stream:
+                print(event.data)
     except NotFoundError as error:
         print("not found:", error.body)
     except APIStatusError as error:

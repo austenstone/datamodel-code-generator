@@ -126,22 +126,23 @@ Subclass the Protocol, so that type checkers report a missing or mismatched meth
 The package looks each method up when it registers the routes, and refuses a coroutine function where the operation's handler mode needs a plain method, or the reverse, and a method that cannot take the keyword arguments of its operation; type checkers check their types.
 
 Call `create_app` yourself to pass other instances.
-Tests pass fakes, as this pytest test does with FastAPI's `TestClient`, which needs `httpx2`.
+Tests pass fakes, as this pytest test does with FastAPI's `TestClient`, which needs `httpx2`: each fake subclasses your class of its group and overrides the methods the test calls.
 An application that builds its services with arguments, such as a database pool or settings, calls `create_app` in a module of its own and runs that module's application instead of `main.py`'s.
 
 ```python
 from fastapi.testclient import TestClient
 
 from server import create_app
-from server.services import JsonService, RawService
+from services.json import Json
+from services.raw import Raw
 
 
-class FakeJson(JsonService):
-    """Implement `post_json`."""
+class FakeJson(Json):
+    """Override the methods the test calls, such as `post_json`."""
 
 
-class FakeRaw(RawService):
-    """Implement `post_text`."""
+class FakeRaw(Raw):
+    """Override the methods the test calls, such as `post_text`."""
 
 
 def test_app() -> None:
@@ -199,6 +200,7 @@ When an operation is added, removed, or changed, its method in `services.py` cha
 Generation writes only the missing modules of `services`: a new router group gets its module with stubs, and the module of a renamed or removed group stays for you to move or delete.
 The `services` package belongs to this server alone, as the docstring of its `__init__.py` records: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too.
 Put each server package under a parent package of its own.
-A server package renamed or moved within the parent package, or spelled from another import root, takes the package over once the package the docstring names is gone, and generation rewrites the docstring to name it; to hand it over while the other package stays, name the new package in the docstring yourself.
+A server package renamed or moved within the parent package, or spelled from another import root, takes the package over once no generated server package beside it has the name the docstring names, and generation rewrites the docstring to name it, as `--check` reports and a notice says; to hand it over while the other package stays, name the new package in the docstring yourself.
+After a take-over, the modules of `services` still import the server package they were written for, as in `from <old package>.services import ...`: update those imports to `server` yourself, since generation never rewrites them.
 Each generation prints the `uv add` command that adds the runtime dependencies of the package to your project;
 run it again when a new version of datamodel-code-generator changes them.

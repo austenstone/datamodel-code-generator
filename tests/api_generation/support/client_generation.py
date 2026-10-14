@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import inspect
 import json
 import re
 import shutil
@@ -746,9 +747,10 @@ def client_regeneration_report(root: Path) -> str:
 def client_readme_report(case_name: str, root: Path) -> str:
     """Run the examples a generated client's README shows before its operations as far as they run without an API.
 
-    Each example parses, imports what it imports from the generated package, and names methods that a client has: a
-    client is created with the example's base URL and every `client.<resource>.<method>` the example calls is looked
-    up on it.
+    Each example parses and imports what it imports from the generated package. A client is created with the first URL
+    the example gives, and each call the example makes of a method it reaches from the client, such as a resource's
+    method or a protocol helper's `connect` or `open`, is looked up on that client in source order, with its arguments
+    bound to the method's signature, `...` standing for each value, so that an unknown or a missing keyword fails.
     """
     case = _case(case_name)
     _prepare_input(case, root)
@@ -762,19 +764,31 @@ def client_readme_report(case_name: str, root: Path) -> str:
             imports = [node for node in tree.body if isinstance(node, ast.Import | ast.ImportFrom)]
             namespace: dict[str, Any] = {}
             exec(compile(ast.Module(imports, []), "README.md", "exec"), namespace)
-            urls = {
-                node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and "://" in str(node.value)
-            }
-            calls = sorted({
-                f"client.{node.func.value.attr}.{node.func.attr}"
-                for node in ast.walk(tree)
-                if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and isinstance(node.func.value, ast.Attribute)
-                and isinstance(node.func.value.value, ast.Name)
-                and node.func.value.value.id == "client"
-            })
-            with client_class(base_url=next(iter(urls))) as client:
-                found = [call for call in calls if callable(attrgetter(call.partition(".")[2])(client))]
+            nodes = sorted(
+                (node for node in ast.walk(tree) if isinstance(node, ast.Constant | ast.Call)),
+                key=lambda node: (node.lineno, node.col_offset),
+            )
+            url = next(node.value for node in nodes if isinstance(node, ast.Constant) and "://" in str(node.value))
+            calls = [
+                (path, node)
+                for node in nodes
+                if isinstance(node, ast.Call) and (path := _client_attribute(node.func)) is not None
+            ]
+            found = []
+            with client_class(base_url=url) as client:
+                for path, node in calls:
+                    method = attrgetter(path)(client)
+                    keywords = [item.arg for item in node.keywords]
+                    inspect.signature(method).bind(*[...] * len(node.args), **dict.fromkeys(keywords, ...))
+                    found.append(f"client.{path}({', '.join(f'{keyword}=...' for keyword in keywords)})")
             lines.append(f"example {index}: imports {sorted(set(namespace) - {'__builtins__'})}, calls {found}")
     return "\n".join(lines) + "\n"
+
+
+def _client_attribute(node: ast.expr) -> str | None:
+    """Return the dotted attribute an expression reaches from the name `client`, or None for any other expression."""
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    return ".".join(reversed(parts)) if parts and isinstance(node, ast.Name) and node.id == "client" else None
