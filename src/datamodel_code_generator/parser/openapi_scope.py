@@ -31,7 +31,7 @@ from datamodel_code_generator.parser.openapi_media import (
     MediaOwner,
     encoding_media,
 )
-from datamodel_code_generator.reference import ModelResolver
+from datamodel_code_generator.reference import _NON_IDENTIFIER_PATTERN, ModelResolver
 from datamodel_code_generator.types import DataType  # noqa: TC001 - Public annotations support get_type_hints().
 
 if TYPE_CHECKING:
@@ -184,6 +184,12 @@ class ApiOpenAPIParser(OpenAPIParser):
         )
         self._parameter_root_models: set[DataModel] = set()
         self._claimed_models = 0
+
+    @classmethod
+    def _get_model_name(cls, path_name: str, method: str, suffix: str) -> str:
+        """Drop leading separators of a name part instead of prefixing ``Field``; ``/`` alone becomes ``Root``."""
+        stripped = _NON_IDENTIFIER_PATTERN.sub("_", path_name).lstrip("_") or "root"
+        return super()._get_model_name(stripped, method, suffix)
 
     def _declaration_id(self, path: Sequence[str]) -> ApiDeclarationId:
         ref = self.model_resolver.join_path(tuple(path))

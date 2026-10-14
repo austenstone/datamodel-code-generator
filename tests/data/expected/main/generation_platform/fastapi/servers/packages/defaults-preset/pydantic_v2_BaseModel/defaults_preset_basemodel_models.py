@@ -27,49 +27,45 @@ class Colors(RootModel[list[Color] | None]):
     root: list[Color] | None = [Color.red]
 
 
-type FieldValuesGetQueryDepthParameter = Annotated[int | None, Field(ge=0)]
+type ValuesGetQueryDepthParameter = Annotated[int | None, Field(ge=0)]
 
 
-type FieldValuesGetQueryBoundedParameter = Annotated[int, Field(ge=0)]
+type ValuesGetQueryBoundedParameter = Annotated[int, Field(ge=0)]
 
 
-type FieldValuesGetQueryPageParameter = int
+type ValuesGetQueryPageParameter = int
 
 
-type FieldValuesGetQueryWordsParameterItem = Annotated[str, Field(min_length=1)]
+type ValuesGetQueryWordsParameterItem = Annotated[str, Field(min_length=1)]
 
 
-type FieldValuesGetQueryWordsParameter = list[FieldValuesGetQueryWordsParameterItem] | None
+type ValuesGetQueryWordsParameter = list[ValuesGetQueryWordsParameterItem] | None
 
 
-type FieldValuesGetHeaderXLevelParameter = Annotated[int, Field(ge=0)]
+type ValuesGetHeaderXLevelParameter = Annotated[int, Field(ge=0)]
 
 
-type FieldValuesGetQueryLabelsParameter = Annotated[
-    list[str] | None, Field(min_length=1)
-]
+type ValuesGetQueryLabelsParameter = Annotated[list[str] | None, Field(min_length=1)]
 
 
-type FieldValuesGetQueryRowsParameter = Annotated[list[int] | None, Field(min_length=1)]
+type ValuesGetQueryRowsParameter = Annotated[list[int] | None, Field(min_length=1)]
 
 
-type FieldValuesGetQueryMarksParameter = Annotated[list[str], Field(min_length=1)]
+type ValuesGetQueryMarksParameter = Annotated[list[str], Field(min_length=1)]
 
 
-type FieldValuesGetQueryExtrasParameter = Annotated[
-    list[str], Field(default_factory=list)
-]
+type ValuesGetQueryExtrasParameter = Annotated[list[str], Field(default_factory=list)]
 
 
-type FieldValuesGetQueryColorParameter = Color
+type ValuesGetQueryColorParameter = Color
 
 
-class FieldValuesGetQueryToneParameter(StrEnum):
+class ValuesGetQueryToneParameter(StrEnum):
     red = 'red'
     blue = 'blue'
 
 
-type FieldValuesGetQuerySizedParameter = Annotated[int, Field(ge=1)]
+type ValuesGetQuerySizedParameter = Annotated[int, Field(ge=1)]
 
 
-type FieldValuesGetHeaderXColorsParameter = list[Color] | None
+type ValuesGetHeaderXColorsParameter = list[Color] | None
