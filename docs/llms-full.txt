@@ -12964,21 +12964,22 @@ generate(
     openapi_scopes=[OpenAPIScope.Schemas, OpenAPIScope.Api],
     output_model_type=DataModelType.PydanticV2BaseModel,
     preset="standard-py312-20260909",
-    output=Path("models.py"),
+    output=Path("app/models.py"),
     generate_server=ServerType.FastAPI,
-    server_output=Path("server"),
-    server_package="server",
-    server_model_package="models",
+    server_output=Path("app/server"),
+    server_package="app.server",
+    server_model_package="app.models",
 )
 ```
 <!-- END AUTO-GENERATED FASTAPI PYTHON API -->
 
 It publishes the models and the package together and returns `None`, like model generation. Without an `output`, it
 needs no `server_output`, returns every model and server file as `GeneratedModules`, under the paths their import paths
-imply, such as `("models.py",)` and `("server", "application.py")`, and writes nothing but the model metadata and a
-remote lock update; see [Generating a Server or Client Package](using_as_module.md#generating-a-server-or-client-package).
-With an `output`, it writes the missing modules of `services` with stubs, as the command line does; without one, it
-writes and returns none.
+imply, such as `("app", "models.py")` and `("app", "server", "application.py")`, and writes nothing but the model
+metadata and a remote lock update; see
+[Generating a Server or Client Package](using_as_module.md#generating-a-server-or-client-package).
+With an `output`, it writes the missing modules of `app.services` with stubs, as the command line does; without one,
+it writes and returns none.
 
 `load_pyproject_config()` reads the server keys of `pyproject.toml`, whose paths and operation documents resolve
 against its directory. Invalid settings, bindings, and template failures raise `datamodel_code_generator.Error` with
