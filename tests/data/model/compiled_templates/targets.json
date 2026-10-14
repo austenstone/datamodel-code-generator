@@ -2584,6 +2584,12 @@
               "file": "../services/authorize.py",
               "stub": "\u001fimplementation:services/authorize.py\u001f"
             }
+          ],
+          "fakes": "pets=FakePetService(), authorize=authorize",
+          "dependencies": [
+            "fastapi>=0.141.1",
+            "pydantic>=2.14.0",
+            "typing-extensions>=4.16"
           ]
         }
       },
@@ -2604,7 +2610,11 @@
           "app": "app.server.main:app",
           "top_level": false,
           "services_package": "app.services",
-          "owned": []
+          "owned": [],
+          "fakes": "",
+          "dependencies": [
+            "fastapi>=0.141.1"
+          ]
         }
       }
     ],

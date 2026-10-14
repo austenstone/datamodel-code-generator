@@ -1,7 +1,7 @@
 --- server/README.md
 +++ server/README.md (expected)
-@@ -222,5 +222,3 @@
- Generation writes only the missing modules of `services`: a new router group gets its module with stubs, and the module of a renamed or removed group stays for you to move or delete.
+@@ -246,5 +246,3 @@
+ Put each server package under a parent package of its own.
  Each generation prints the `uv add` command that adds the runtime dependencies of the package to your project;
  run it again when a new version of datamodel-code-generator changes them.
 -

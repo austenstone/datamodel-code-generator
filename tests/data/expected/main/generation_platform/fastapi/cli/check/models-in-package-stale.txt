@@ -448,7 +448,7 @@ EXTRA: server/routers/store.py (no longer generated)
   "components": {
 --- server/README.md
 +++ server/README.md (expected)
-@@ -18,7 +18,6 @@
+@@ -15,7 +15,6 @@
  | Module | File | Defines |
  | --- | --- | --- |
  | `services.pets` | `../services/pets.py` | `class Pets(PetsService)` |
@@ -456,7 +456,7 @@ EXTRA: server/routers/store.py (no longer generated)
  
  The file paths are relative to this README.
  Replace each stub with your code, then run the application with an ASGI server, from the directory that holds the top-level package (add `--app-dir src` for a `src` layout):
-@@ -77,62 +76,6 @@
+@@ -74,62 +73,6 @@
          Handle POST /pets.
          """
          raise NotImplementedError
@@ -518,8 +518,8 @@ EXTRA: server/routers/store.py (no longer generated)
 -        raise NotImplementedError
  ```
  
- ## Operations
-@@ -141,10 +84,6 @@
+ ## Dependencies
+@@ -154,10 +97,6 @@
  | --- | --- | --- | --- | --- |
  | `PetsService` | `list_pets` | GET | `/pets` | `/paths/~1pets/get` |
  | `PetsService` | `create_pet` | POST | `/pets` | `/paths/~1pets/post` |
@@ -530,30 +530,34 @@ EXTRA: server/routers/store.py (no longer generated)
  
  `operation_dependencies` takes the method names, the keys of `OperationDependencies`; the per-operation generation settings, such as `--server-handler-modes`, take the operation references.
  
-@@ -158,18 +97,14 @@
+@@ -177,19 +116,15 @@
+ from fastapi.testclient import TestClient
  
- ```python
  from server import create_app
 -from server.services import PetsService, StoreService
 +from server.services import PetsService
  
  
- class Pets(PetsService):
+ class FakePets(PetsService):
 -    """Implement `list_pets`, `create_pet`, `list_my_pets`, `get_pet`, and `delete_pet`."""
+-
+-
+-class FakeStore(StoreService):
+-    """Implement `get_inventory`."""
 +    """Implement `list_pets` and `create_pet`."""
  
  
--class Store(StoreService):
--    """Implement `get_inventory`."""
--
--
--app = create_app(pets=Pets(), store=Store())
-+app = create_app(pets=Pets())
+ def test_app() -> None:
+-    with TestClient(create_app(pets=FakePets(), store=FakeStore())) as client:
++    with TestClient(create_app(pets=FakePets())) as client:
+         ...
  ```
  
- Run the application with any ASGI server, such as `uvicorn app:app` for a module named `app.py`.
-@@ -182,7 +117,7 @@
+@@ -201,10 +136,9 @@
+ 
  from server import build_router
+ from services.pets import Pets
+-from services.store import Store
  
  app = FastAPI(lifespan=lifespan, exception_handlers=exception_handlers)
 -app.include_router(build_router(pets=Pets(), store=Store()))

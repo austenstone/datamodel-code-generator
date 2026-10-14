@@ -1619,7 +1619,7 @@ module's import block:
 | `implementation.jinja2` | `imports`, `protocol`, `services`, `entrypoint`, `name`, `base`, `methods`, `protocol_methods` |
 | `main.jinja2` | `imports`, `app`, `services`, `implementations`, `missing`, `table`, `create_app`, `arguments` |
 | `openapi.jinja2` | none |
-| `readme.jinja2` | `title`, `package`, `model_package`, `backend`, `operations`, `services`, `protocols`, `services_package`, `owned`, `app`, `arguments`, `schemes`, `forms`, `raw_request` |
+| `readme.jinja2` | `title`, `package`, `model_package`, `backend`, `operations`, `services`, `protocols`, `services_package`, `owned`, `app`, `top_level`, `arguments`, `fakes`, `dependencies`, `schemes`, `forms`, `raw_request` |
 | `router.jinja2` | `imports`, `docstring`, `routes`, `api_router`, `wiring`, `final`, `literal`, `templated`, `builder`, `group`, `build`, `services`, `settings` |
 | `security.jinja2` | `imports`, `schemes`, `exports` |
 | `services.jinja2` | `imports`, `typevar`, `abstract`, `protocol_type`, `protocols` |

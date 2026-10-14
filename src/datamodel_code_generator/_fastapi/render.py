@@ -557,12 +557,14 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
         document: str = "{}",
         use_schema_description: bool = False,
         use_single_line_docstring: bool = False,
+        dependencies: tuple[str, ...] = (),
     ) -> None:
         """Keep the plans.
 
         The overrides of a custom template directory replace builtin roles. `document` is the JSON text of the source
         document the application serves. The docstring settings are the models' own: a service method documents its
-        operation's summary and description with `use_schema_description`, its route otherwise.
+        operation's summary and description with `use_schema_description`, its route otherwise. `dependencies` are the
+        package's runtime requirements, which the README lists as the `uv add` notice prints them.
         """
         self.config = config
         self.backend = backend
@@ -574,6 +576,7 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
         self.types = types
         self.use_schema_description = use_schema_description
         self.use_single_line_docstring = use_single_line_docstring
+        self.dependencies = dependencies
         self.classes = _plan_classes(plan, {name for module, name in types.fixed if module is not None})
         self.scheme_names = {scheme.name: scheme.python_name for scheme in plan.schemes}
 
@@ -743,7 +746,11 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
         plan, config = self.plan, self.config
         info = dict(plan.info)
         groups = plan.groups
-        arguments = [f"{group.stem}={_implementation(group)}()" for group in groups]
+        authorize = ("authorize=authorize",) if plan.schemes else ()
+
+        def arguments(prefix: str) -> str:
+            return ", ".join((*(f"{group.stem}={prefix}{_implementation(group)}()" for group in groups), *authorize))
+
         return templated(
             "readme.jinja2",
             readme_template.render,
@@ -776,7 +783,9 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
             owned=self.owned,
             app=f"{config.package}.main:app",
             top_level="." not in config.package,
-            arguments=", ".join((*arguments, *(("authorize=authorize",) if plan.schemes else ()))),
+            arguments=arguments(""),
+            fakes=arguments("Fake"),
+            dependencies=list(self.dependencies),
             schemes=[{"name": scheme.name, "credential": _credential(scheme)} for scheme in plan.schemes],
             forms=any(spec.body is not None and spec.body.form for spec in plan.operations),
             raw_request=any(
