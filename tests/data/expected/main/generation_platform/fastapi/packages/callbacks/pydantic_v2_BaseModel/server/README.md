@@ -238,9 +238,9 @@ Run the same generation again whenever the OpenAPI document changes; the `--chec
 Generation overwrites every generated file, restoring any you edited or deleted, and never deletes one: delete the modules of removed operations yourself, which `--check` lists as extra files.
 When an operation is added, removed, or changed, its method in `services.py` changes with it, so type checkers point at the implementations to update, and Python refuses to create an instance of a subclass that lacks a new method.
 Generation writes only the missing modules of `services`: a new router group gets its module with stubs, and the module of a renamed or removed group stays for you to move or delete.
-The `services` package belongs to this server alone, as the docstring of its `__init__.py` records: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too.
+The `services` package belongs to this server alone, as the docstring of its `__init__.py` records: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too, whatever the docstring says.
 Put each server package under a parent package of its own.
-A server package renamed or moved within the parent package, or spelled from another import root, takes the package over once no generated server package beside it has the name the docstring names, and generation rewrites the docstring to name it, as `--check` reports and a notice says; to hand it over while the other package stays, name the new package in the docstring yourself.
+A server package renamed or moved within the parent package, or spelled from another import root, takes the package over while no other generated server package is beside it, and generation rewrites the docstring to name it, as `--check` reports and a notice says.
 After a take-over, the modules of `services` still import the server package they were written for, as in `from <old package>.services import ...`: update those imports to `server` yourself, since generation never rewrites them.
 Each generation prints the `uv add` command that adds the runtime dependencies of the package to your project;
 run it again when a new version of datamodel-code-generator changes them.

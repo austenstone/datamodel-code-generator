@@ -17,4 +17,4 @@ See app/api/README.md.
 datamodel-code-generator wrote this file once and never overwrites it, or the modules beside it."""
 
 # Yours
-Error: app/services/__init__.py: The app.services package holds the implementations of the server package app.api, as the docstring of its __init__.py says, and app.other.main would import them too: put each server package under a parent package of its own, or name app.other in that docstring when app.api is no longer used
+Error: app/services: The server packages app.api, generated before, and app.other would both import their implementations from the app.services package: put each server package under a parent package of its own, or delete the directory app/api of app.api when it is no longer used

@@ -1,2 +1,2 @@
-Error: services/__init__.py: The services package holds the implementations of the server package server, as the docstring of its __init__.py says, and admin.main of job 'admin' would import them too: put each server package under a parent package of its own, or name admin in that docstring when server is no longer used
+Error: services: The server packages server, generated before, and admin of job 'admin' would both import their implementations from the services package: put each server package under a parent package of its own, or delete the directory server of server when it is no longer used
 admin written: False

@@ -1256,14 +1256,14 @@ directory. `--all-jobs --watch` regenerates the batch, server jobs included, whe
 Keep the service implementations and the `authorize` callback in the `services` package beside the server package,
 which `main.py` imports: `services` beside `server`, `app/services` for `--server-package app.server`, written by
 generation only while a module is missing. Each stub names the server package it was written for, and the docstring
-of `services/__init__.py` records the server package that owns the `services` package. The `services` package belongs
-to one server: generation refuses a second server package beside the first, in a later run or in the same batch,
-since its `main.py` would import the same `services` package; give each server package a parent package of its own.
-A server package that you rename or move within its parent package, or name from another import root, such as
-`app.server` after `src.app.server`, takes the `services` package over once no generated server package beside it has
-the name the docstring names, whatever its directory or whether its `main.py` is still there. Generation then rewrites
-that name in the docstring, `--check` reports the change, and the run prints a notice that names both packages; to hand
-the package over while the other server package stays, edit the name in the docstring yourself. Generation never
+of `services/__init__.py` records the server package that owns the `services` package. One parent package holds one
+server package: generation refuses a second server package beside a generated one, in a later run or in the same
+batch, since its `main.py` would import the same `services` package, whatever its directory, whether its `main.py` is
+still there, and whatever the docstring of `services/__init__.py` says; give each server package a parent package of
+its own, or delete the directory of the other one when it is no longer used. A server package that you rename or move
+within its parent package, or name from another import root, such as `app.server` after `src.app.server`, takes the
+`services` package over while no other generated server package is beside it. Generation then rewrites the name in the
+docstring, `--check` reports the change, and the run prints a notice that names both packages. Generation never
 rewrites the modules of the `services` package, which still import the server package they were written for, such as
 `from app.server.services import PetsService` after a rename to `app.api`: update those imports yourself.
 Generation also refuses a module named `services.py` beside the server package, a module of yours or the models, since
