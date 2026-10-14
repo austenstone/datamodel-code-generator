@@ -942,7 +942,8 @@ class OpenAPIParser(JsonSchemaParser):
 
         if OpenAPIScope.Parameters in self.open_api_scopes and fields:
             for field_schema, schema_path in field_schemas:
-                self.parse_ref(field_schema, schema_path)
+                if not self._references_nothing_in_values(field_schema):
+                    self.parse_ref(field_schema, schema_path)
             # Using _create_data_model from parent class JsonSchemaParser
             # This method automatically adds frozen=True for DataClass types
             self.generation_store.register_model(

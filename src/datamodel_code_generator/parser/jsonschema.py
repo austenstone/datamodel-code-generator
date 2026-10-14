@@ -10112,9 +10112,18 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             **(self._get_python_type_flags(obj) or {"is_dict": True}),
         )
 
+    @property
+    def _types_nullable_map_values(self) -> bool:
+        """Whether this run types the values of nullable maps."""
+        return self.use_typed_nullable_map_values and not self.run_context.untyped_nullable_maps
+
     def _typed_nullable_map_value_schema(self, obj: JsonSchemaObject) -> JsonSchemaObject | None:
-        """Return the value schema of a nullable map unless this run keeps the values of nullable maps untyped."""
-        return None if self.run_context.untyped_nullable_maps else _nullable_map_value_schema(obj)
+        """Return the value schema of a nullable map when this run types the values of nullable maps."""
+        return _nullable_map_value_schema(obj) if self._types_nullable_map_values else None
+
+    def _references_nothing_in_values(self, obj: JsonSchemaObject) -> bool:
+        """Return whether obj is a nullable map whose untyped values leave the models they reference unused."""
+        return not self._types_nullable_map_values and _nullable_map_value_schema(obj) is not None
 
     def _parse_nullable_map(
         self, name: str, obj: JsonSchemaObject, path: list[str], additional_properties: JsonSchemaObject

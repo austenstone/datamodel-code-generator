@@ -828,6 +828,13 @@ typing_options.add_argument(
     default=None,
 )
 typing_options.add_argument(
+    "--use-typed-nullable-map-values",
+    help="Type the values of nullable maps, schemas typed [object, null] with additionalProperties, as their schema "
+    "says, with a model for object values. Without it the 0.83.0 form is kept, dict[str, Any] | None.",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
     "--use-subclass-enum",
     help="Define generic Enum class as subclass with field type when enum has type (int, float, bytes, str)",
     action="store_true",
