@@ -12,8 +12,8 @@ The [runtime reference](_generated_docs/runtime.md) describes the settings, defa
 ```python
 from client import Client
 
-with Client(base_url="https://api.example.com") as client:
-    result = client.searches.search_feed(body=...)
+with Client(base_url="https://api.example.com", query_key="...") as client:
+    result = client.status.get_status()
 ```
 
 `AsyncClient` has the same resources and methods, and each method is a coroutine:
@@ -23,8 +23,8 @@ from client import AsyncClient
 
 
 async def main() -> None:
-    async with AsyncClient(base_url="https://api.example.com") as client:
-        result = await client.searches.search_feed(body=...)
+    async with AsyncClient(base_url="https://api.example.com", query_key="...") as client:
+        result = await client.status.get_status()
 ```
 
 Replace each `...` with a value of the type its argument declares; [Operations](#operations) lists the arguments of each method.
@@ -33,12 +33,12 @@ Leaving the `with` or `async with` block closes the client, as `close()` or `acl
 Import options, errors, and response types from the public modules of the package.
 `request_raw(method, url)` of a client sends a request outside the operations to an absolute URL and returns its raw response.
 
-`Client` and `AsyncClient` take one keyword argument per security scheme an operation requires: `query_key` (API key).
+`Client` and `AsyncClient` take one keyword argument per security scheme an operation requires: `query_key` (API key). The example gives those of the first security alternative of `status.get_status`.
 See [Authentication](_generated_docs/runtime.md#authentication) in the runtime reference.
 
 ## Base URL and servers
 
-Without `base_url`, a call sends to the first server generation resolved for its operation, with the default of each server variable: `https://api.example.com` for `searches.search_feed`.
+Without `base_url`, a call sends to the first server generation resolved for its operation, with the default of each server variable: `https://api.example.com` for `status.get_status`.
 An operation's servers are the OpenAPI `servers` of the operation, its path item, or the document; one without them takes the `--client-default-base-url` of the generation.
 `server=ServerSelection(index=..., variables={...})`, with `ServerSelection` from `client.options`, picks another declared server by position and supplies its variables; `base_url=` replaces the servers with one URL.
 `Client`, `AsyncClient`, `with_options`, and `RequestOptions` take both, and the nearest one given wins: a call's over its view's, and a view's over the client's.
@@ -50,9 +50,9 @@ Giving both on one of them raises `ConfigurationError`.
 from client import Client
 from client.errors import APIConnectionError, APIStatusError, NotFoundError
 
-with Client(base_url="https://api.example.com") as client:
+with Client(base_url="https://api.example.com", query_key="...") as client:
     try:
-        result = client.searches.search_feed(body=...)
+        result = client.status.get_status()
     except NotFoundError as error:
         print("not found:", error.body)
     except APIStatusError as error:

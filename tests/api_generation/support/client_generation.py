@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -9,6 +10,7 @@ import shutil
 import warnings
 from functools import partial
 from importlib.resources import files
+from operator import attrgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 
@@ -16,6 +18,7 @@ from datamodel_code_generator import DataModelType, Error, GenerateConfig, Inval
 from datamodel_code_generator.enums import OpenAPIScope
 from datamodel_code_generator.format import Formatter
 from tests.api_generation.support.backends import backend_settings
+from tests.api_generation.support.generated_packages import generated_root, import_generated
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -738,3 +741,40 @@ def client_regeneration_report(root: Path) -> str:
         f"{all(_written_as_text(path, scratch) for path in files if path != extensions)}"
     )
     return "\n".join(lines).replace(root.resolve().as_posix(), "<root>") + "\n"
+
+
+def client_readme_report(case_name: str, root: Path) -> str:
+    """Run the examples a generated client's README shows before its operations as far as they run without an API.
+
+    Each example parses, imports what it imports from the generated package, and names methods that a client has: a
+    client is created with the example's base URL and every `client.<resource>.<method>` the example calls is looked
+    up on it.
+    """
+    case = _case(case_name)
+    _prepare_input(case, root)
+    _run(case, "pydantic_v2.BaseModel", root, case.get("model", {}))
+    readme = (root / PACKAGE / "README.md").read_text(encoding="utf-8").partition("\n## Operations\n")[0]
+    lines = [f"# {case_name}"]
+    with generated_root(root, PACKAGE, "models"):
+        client_class = import_generated(PACKAGE).Client
+        for index, block in enumerate(re.findall(r"^```python\n(.*?)^```$", readme, re.MULTILINE | re.DOTALL), 1):
+            tree = ast.parse(block)
+            imports = [node for node in tree.body if isinstance(node, ast.Import | ast.ImportFrom)]
+            namespace: dict[str, Any] = {}
+            exec(compile(ast.Module(imports, []), "README.md", "exec"), namespace)
+            urls = {
+                node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and "://" in str(node.value)
+            }
+            calls = sorted({
+                f"client.{node.func.value.attr}.{node.func.attr}"
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Attribute)
+                and isinstance(node.func.value.value, ast.Name)
+                and node.func.value.value.id == "client"
+            })
+            with client_class(base_url=next(iter(urls))) as client:
+                found = [call for call in calls if callable(attrgetter(call.partition(".")[2])(client))]
+            lines.append(f"example {index}: imports {sorted(set(namespace) - {'__builtins__'})}, calls {found}")
+    return "\n".join(lines) + "\n"

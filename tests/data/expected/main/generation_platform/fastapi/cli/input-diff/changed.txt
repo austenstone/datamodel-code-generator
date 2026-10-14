@@ -305,7 +305,7 @@ REMOVED: server/routers/owners.py (generated only from baseline input)
 -from services.owners import Owners
 +from services.store import Store
  
- app = FastAPI(lifespan=lifespan, exception_handlers=exception_handlers)
+ app = FastAPI()
 -app.include_router(build_router(pets=Pets(), owners=Owners()))
 +app.include_router(build_router(pets=Pets(), store=Store()))
  ```

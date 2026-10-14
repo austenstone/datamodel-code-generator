@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
 _PYTHON_MINIMUM = (3, 11)
 _PYTHON_MINIMUM_TEXT = f"{_PYTHON_MINIMUM[0]}.{_PYTHON_MINIMUM[1]}"
-_SERVICES_OWNER = re.compile(r'^"""Your implementations of ([\w.]+), which ', re.MULTILINE)
+_SERVICES_OWNER = re.compile(r'^"""Your implementations of ([\w.]+), which ((?:\1\.main)?)', re.MULTILINE)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -543,6 +543,12 @@ def _implementation(item: Implementation, path: Path, kept: frozenset[Path], cwd
     return replace(item, path=path, created=path not in kept)
 
 
+def _adopted(owner: re.Match[str], server: str) -> str:
+    """Return an initializer of implementations whose docstring names another server package as this one's."""
+    named = f'"""Your implementations of {server}, which {f"{server}.main" if owner[2] else ""}'
+    return f"{owner.string[: owner.start()]}{named}{owner.string[owner.end() :]}"
+
+
 class _Planner:
     def __init__(  # noqa: PLR0913
         self,
@@ -553,8 +559,10 @@ class _Planner:
         *,
         models_module: bool = False,
         shown_root: Path | None = None,
+        job: str = "",
     ) -> None:
         self.models = models
+        self.job = job
         self.models_module = models_module
         self.effective = effective
         self.config = config
@@ -686,7 +694,7 @@ class _Planner:
                 for path in kept.values()
             ),
         )
-        self.check_services(artifacts)
+        artifacts = self.check_services(artifacts)
         self.check_collisions(artifacts)
         return GeneratedProject(
             target=generator.kind,
@@ -695,21 +703,24 @@ class _Planner:
             next_steps=_located(rendered.next_steps, config.output, frozenset(kept.values()), self.cwd),
         )
 
-    def check_services(self, artifacts: tuple[GeneratedArtifact, ...]) -> None:
-        """Refuse a package of implementations that is not the server's own, or that models or a module would shadow.
+    def check_services(self, artifacts: tuple[GeneratedArtifact, ...]) -> tuple[GeneratedArtifact, ...]:
+        """Refuse a package of implementations that another server package uses, or that models or a module shadow.
 
         Python would import one of a module beside the server package and the package instead of the other, and a
-        models package would be the package itself. The docstring of the package's initializer names the server
-        package it holds the implementations of, which another server package beside it would import too.
+        models package would be the package itself. The docstring of the package's initializer names the server package
+        it holds the implementations of: another one, still in place beside this one with its `main.py`, refuses the
+        run, since this one would import them too. One that is gone, renamed or moved, or this package spelled from
+        another import root, leaves the package to this one, whose name the docstring then records.
         """
         if not (paths := [artifact.path for artifact in artifacts if artifact.kind == "implementation"]):
-            return
+            return artifacts
         module = (package := paths[0].parent).with_suffix(".py")
         models = [artifact.path for artifact in artifacts if artifact.kind == "model"]
         server = self.config.package
         parent = server.rpartition(".")[0]
         services = f"{parent}.services" if parent else "services"
-        clash = f"the {services} package, from which {server}.main imports your implementations"
+        entry = f"{server}.main" + (f" of job '{self.job}'" if self.job else "")
+        clash = f"the {services} package, from which {entry} imports your implementations"
         remedy = "put the server package under a parent package of its own"
         if found := next((path for path in models if path in {module, package}), None):
             path, message = found, f"The models module has the name of {clash}: name the models otherwise, or {remedy}"
@@ -717,13 +728,17 @@ class _Planner:
             path, message = package, f"The models package would be {clash}: name the models otherwise, or {remedy}"
         elif (self.cwd / module).is_file():
             path, message = module, f"This module of yours has the name of {clash}: rename the module, or {remedy}"
-        elif (owner := self.services_owner(path := package / "__init__.py")) not in {None, server}:
-            message = (
-                f"The {services} package holds the implementations of the server package {owner}, which {server}.main "
-                "would import too: put each server package under a parent package of its own"
-            )
+        elif (owner := self.services_owner(path := package / "__init__.py")) is None or owner[1] == server:
+            return artifacts
+        elif not self.serves(package.parent / owner[1].rpartition(".")[2]):
+            adopted = self.artifact(path, "implementation", _adopted(owner, server).encode(*self.codec))
+            return tuple(adopted if artifact.path == path else artifact for artifact in artifacts)
         else:
-            return
+            message = (
+                f"The {services} package holds the implementations of the server package {owner[1]}, as the docstring "
+                f"of its __init__.py says, and {entry} would import them too: put each server package under a parent "
+                f"package of its own, or name {server} in that docstring when {owner[1]} is no longer used"
+            )
         raise APIGenerationError((
             Diagnostic(
                 code="E_PATH_COLLISION",
@@ -734,18 +749,28 @@ class _Planner:
             ),
         ))
 
-    def services_owner(self, initializer: Path) -> str | None:
-        """Return the server package that the docstring of an existing initializer of implementations names."""
+    @property
+    def codec(self) -> tuple[str, str]:
+        """Return the encoding of the user's modules, and the error handler that keeps undecodable bytes as they are."""
+        return self.effective.encoding, "surrogateescape"
+
+    def services_owner(self, initializer: Path) -> re.Match[str] | None:
+        """Return where the docstring of an existing initializer of implementations names its server package."""
         if not (location := self.cwd / initializer).is_file():
             return None
-        text = location.read_text(encoding=self.effective.encoding, errors="replace")
-        return match[1] if (match := _SERVICES_OWNER.search(text)) else None
+        return _SERVICES_OWNER.search(location.read_bytes().decode(*self.codec))
+
+    def serves(self, directory: Path) -> bool:
+        """Return whether a directory other than this server package's holds a server package, with its `main.py`."""
+        location = self.cwd / directory
+        return (location / "main.py").is_file() and not (self.root.is_dir() and location.samefile(self.root))
 
     def planned(self) -> PlannedTarget:
         models, output = self.models, self.effective.output
         return PlannedTarget(
             project=self.project(),
             cwd=self.cwd,
+            name=self.config.package,
             package=self.config.output,
             models=None if models.single else output,
             lock=models.lock,
@@ -757,12 +782,14 @@ class _Planner:
 class PlannedTarget:
     """A rendered target and where its files go, for a caller that writes it now or later with other files.
 
-    `models` is the models directory, or None for a models file. `lock` is the remote lock update that the target
-    publishes with its files, None when the caller owns the lock the models record into.
+    `name` is the package's import name and `package` its directory. `models` is the models directory, or None for a
+    models file. `lock` is the remote lock update that the target publishes with its files, None when the caller owns
+    the lock the models record into.
     """
 
     project: GeneratedProject
     cwd: Path
+    name: str
     package: Path
     models: Path | None
     lock: RemoteReferenceLock | None
@@ -773,6 +800,38 @@ class PlannedTarget:
         if artifact.kind == "target":
             return self.package
         return self.models if artifact.kind == "model" else None
+
+    @property
+    def services(self) -> Path | None:
+        """Return the package of the user's implementations a server package imports, or None for other targets."""
+        return next((item.path.parent for item in self.project.artifacts if item.kind == "implementation"), None)
+
+
+def check_shared_services(job: str, target: PlannedTarget, earlier: Iterable[tuple[str, PlannedTarget]]) -> None:
+    """Refuse a server package of a batch job whose `services` package a server package of an earlier job imports.
+
+    Both would import their implementations from it, so the batch is refused while it plans, whether it writes or
+    checks its files.
+    """
+    if (services := target.services) is None:
+        return
+    location = (target.cwd / services).resolve()
+    for owner, planned in earlier:
+        if planned.services is not None and (planned.cwd / planned.services).resolve() == location:
+            parent = target.name.rpartition(".")[0]
+            raise APIGenerationError((
+                Diagnostic(
+                    code="E_PATH_COLLISION",
+                    severity="error",
+                    stage="publication",
+                    message=(
+                        f"The server packages {planned.name} of job '{owner}' and {target.name} of job '{job}' would "
+                        f"both import their implementations from the {f'{parent}.services' if parent else 'services'} "
+                        "package: put each server package under a parent package of its own"
+                    ),
+                    artifact_path=shown(services, target.cwd).as_posix(),
+                ),
+            ))
 
 
 def _stage(target: PlannedTarget, artifacts: Iterable[GeneratedArtifact], stack: ExitStack) -> list[StagedFile]:
@@ -853,39 +912,22 @@ def publish_target(target: PlannedTarget) -> None:
 
 
 def _unshared(
-    job: str, target: PlannedTarget, models: dict[Path, tuple[str, GeneratedArtifact, Path]]
+    job: str, target: PlannedTarget, models: dict[Path, tuple[str, GeneratedArtifact]]
 ) -> Iterator[GeneratedArtifact]:
     """Yield the artifacts of a job's target that no earlier job plans.
 
-    Jobs that share a models output plan each of its files once, and must plan the same content for it. Server packages
-    in one parent package would import their implementations from one `services` package, so two of them refuse the
-    run.
+    Jobs that share a models output plan each of its files once, and must plan the same content for it. No two jobs
+    plan one `services` package, which `check_shared_services` refused while the batch planned.
     """
     for artifact in target.project.artifacts:
-        if artifact.kind not in {"model", "implementation"}:
+        if artifact.kind != "model":
             yield artifact
             continue
         location = target.cwd / artifact.path
-        owner, planned, package = models.setdefault(
-            location.parent.resolve(strict=False) / location.name, (job, artifact, target.package)
-        )
+        owner, planned = models.setdefault(location.parent.resolve(strict=False) / location.name, (job, artifact))
         if planned is artifact:
             yield artifact
-        elif artifact.kind == "implementation":
-            raise APIGenerationError((
-                Diagnostic(
-                    code="E_PATH_COLLISION",
-                    severity="error",
-                    stage="publication",
-                    message=(
-                        f"The server packages {shown(package, target.cwd).as_posix()} of job '{owner}' and "
-                        f"{shown(target.package, target.cwd).as_posix()} of job '{job}' would both import their "
-                        "implementations from this package: put each server package under a parent package of its own"
-                    ),
-                    artifact_path=shown(artifact.path.parent, target.cwd).as_posix(),
-                ),
-            ))
-        elif artifact.kind == "model" and planned.content != artifact.content:
+        elif planned.content != artifact.content:
             raise APIGenerationError((
                 Diagnostic(
                     code="E_PATH_COLLISION",
@@ -907,7 +949,7 @@ def publish_planned(files: Iterable[StagedFile], targets: Sequence[tuple[str, Pl
     with ExitStack() as stack:
         try:
             staged = list(files)
-            models: dict[Path, tuple[str, GeneratedArtifact, Path]] = {}
+            models: dict[Path, tuple[str, GeneratedArtifact]] = {}
             for job, target in targets:
                 staged.extend(_stage(target, _unshared(job, target, models), stack))
             if staged:
@@ -1059,12 +1101,14 @@ def _plan(  # noqa: PLR0913
     timestamp: str | None = None,
     models_module: bool = False,
     shown_root: Path | None = None,
+    job: str = "",
 ) -> PlannedTarget:
     """Render one target; a run that publishes it cannot leave a lock update another caller owns unpublished.
 
     The files carry `timestamp` as their generation timestamp, or the current time without one. With
     `models_module`, models generated as one file are planned as the module that the suffixless output names.
-    Warnings name target paths relative to `shown_root`, or to the working directory without one.
+    Warnings name target paths relative to `shown_root`, or to the working directory without one, and refusals name
+    the batch `job` that plans the target.
     """
     effective = prepare_target(input_, model_config, generator)
     if publish and effective.remote_lock_resolved and getattr(effective.remote_lock, "update", False):
@@ -1081,17 +1125,10 @@ def _plan(  # noqa: PLR0913
     models = _run_models(input_, effective, config)
     try:
         return _Planner(
-            models, effective, config, generator, models_module=models_module, shown_root=shown_root
+            models, effective, config, generator, models_module=models_module, shown_root=shown_root, job=job
         ).planned()
     finally:
         models.product.close()
-
-
-def render_target(
-    input_: _GenerationInput, *, model_config: GenerateConfig, config: TargetConfig, generator: TargetGenerator
-) -> GeneratedProject:
-    """Render one target and its models once, returning every generated file without writing it."""
-    return _plan(input_, model_config, config, generator, publish=False).project
 
 
 def plan_target(  # noqa: PLR0913
@@ -1104,13 +1141,15 @@ def plan_target(  # noqa: PLR0913
     timestamp: str | None = None,
     models_module: bool = False,
     shown_root: Path | None = None,
+    job: str = "",
 ) -> PlannedTarget:
-    """Render one target like `render_target` for a caller that publishes it later, alone or with other files.
+    """Render one target and its models without writing them, for a caller that compares or publishes them later.
 
     A caller that publishes it with other files owns the remote lock the models record into, so the target leaves
     the lock out. Targets published together pass on the `timestamp` of the first, so the models they share carry
-    one generation timestamp. `models_module` plans models generated as one file as the module `<output>.py`, and
-    warnings name target paths relative to `shown_root`, or to the working directory without one.
+    one generation timestamp. `models_module` plans models generated as one file as the module `<output>.py`,
+    warnings name target paths relative to `shown_root`, or to the working directory without one, and refusals name
+    the batch `job` that plans the target.
     """
     return _plan(
         input_,
@@ -1121,6 +1160,7 @@ def plan_target(  # noqa: PLR0913
         timestamp=timestamp,
         models_module=models_module,
         shown_root=shown_root,
+        job=job,
     )
 
 

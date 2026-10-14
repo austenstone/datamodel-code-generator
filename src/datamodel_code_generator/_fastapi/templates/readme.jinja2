@@ -77,7 +77,7 @@ The Protocols of groups with secured operations take the type of the principal y
 {%- endif %}
 
 Call `create_app` yourself to pass other instances.
-Tests pass fakes, as this pytest test does with FastAPI's `TestClient`, which needs `httpx`.
+Tests pass fakes, as this pytest test does with FastAPI's `TestClient`, which needs `httpx2`.
 An application that builds its services with arguments, such as a database pool or settings, calls `create_app` in a module of its own and runs that module's application instead of `main.py`'s.
 
 ```python
@@ -90,13 +90,13 @@ from {{ package }}.services import {{ protocols }}
 {%- for service in services %}
 
 
-class Fake{{ service.implementation }}({{ service.protocol }}{% if service.secured %}[Principal]{% endif %}):
+class Fake{{ service.implementation }}({{ service.protocol }}{% if service.secured %}[object]{% endif %}):
     """Implement {{ service.methods }}."""
 {%- endfor %}
 {%- if schemes %}
 
 
-def authorize(requirement_sets: RequirementSets, credentials: Credentials) -> Principal:
+def authorize(requirement_sets: RequirementSets, credentials: Credentials) -> object:
     ...
 {%- endif %}
 
@@ -114,10 +114,10 @@ from fastapi import FastAPI
 
 from {{ package }} import build_router
 {%- for item in owned %}
-from {{ item.module }} import {{ item.name }}
+from {{ item.module }} import {{ item.name }}{% if item.alias != item.name %} as {{ item.alias }}{% endif %}
 {%- endfor %}
 
-app = FastAPI(lifespan=lifespan, exception_handlers=exception_handlers)
+app = FastAPI()
 app.include_router(build_router({{ arguments }}))
 ```
 {%- if schemes %}
@@ -176,8 +176,9 @@ Generation overwrites every generated file, restoring any you edited or deleted,
 When an operation is added, removed, or changed, its method in `services.py` changes with it, so type checkers point at the implementations to update, and Python refuses to create an instance of a subclass that lacks a new method.
 {%- if owned %}
 Generation writes only the missing modules of `{{ services_package }}`: a new router group gets its module with stubs, and the module of a renamed or removed group stays for you to move or delete.
-The `{{ services_package }}` package belongs to this server alone, as the docstring of its `__init__.py` says: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too.
+The `{{ services_package }}` package belongs to this server alone, as the docstring of its `__init__.py` records: generation refuses another server package beside this one, in a later run or in the same batch, since that package would import its implementations from it too.
 Put each server package under a parent package of its own.
+A server package renamed or moved within the parent package, or spelled from another import root, takes the package over once the package the docstring names is gone, and generation rewrites the docstring to name it; to hand it over while the other package stays, name the new package in the docstring yourself.
 {%- endif %}
 Each generation prints the `uv add` command that adds the runtime dependencies of the package to your project;
 run it again when a new version of datamodel-code-generator changes them.

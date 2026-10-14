@@ -745,11 +745,13 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
         """Return the README of the target root: the operations, how to implement and connect them, and regeneration."""
         plan, config = self.plan, self.config
         info = dict(plan.info)
-        groups = plan.groups
-        authorize = ("authorize=authorize",) if plan.schemes else ()
+        groups, owned = plan.groups, self.owned
 
         def arguments(prefix: str) -> str:
-            return ", ".join((*(f"{group.stem}={prefix}{_implementation(group)}()" for group in groups), *authorize))
+            return ", ".join(
+                f"{item.keyword}={prefix}{item.alias}()" if item.base else f"{item.keyword}={item.alias}"
+                for item in owned
+            )
 
         return templated(
             "readme.jinja2",
@@ -772,15 +774,15 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
             services=[
                 {
                     "protocol": group.service,
-                    "implementation": _implementation(group),
+                    "implementation": item.alias,
                     "secured": group.secured,
                     "methods": _listed([f"`{spec.python_name}`" for spec in group.operations]),
                 }
-                for group in groups
+                for group, item in zip(groups, owned, strict=False)
             ],
             protocols=", ".join(group.service for group in groups),
             services_package=self.services_package,
-            owned=self.owned,
+            owned=owned,
             app=f"{config.package}.main:app",
             top_level="." not in config.package,
             arguments=arguments(""),

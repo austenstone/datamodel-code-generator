@@ -143,7 +143,7 @@ package; keeping the generated packages inside your application package, instead
 at a glance what is generated and what is yours:
 
 ```bash
-mkdir app && touch app/__init__.py
+mkdir -p app && touch app/__init__.py
 ```
 
 Put the settings in `pyproject.toml` and run `datamodel-codegen` without arguments, or pass them as options:
@@ -1249,10 +1249,14 @@ directory. `--all-jobs --watch` regenerates the batch, server jobs included, whe
 
 Keep the service implementations and the `authorize` callback in the `services` package beside the server package,
 which `main.py` imports: `services` beside `server`, `app/services` for `--server-package app.server`, written by
-generation only while a module is missing. Each stub names the server package it was written for, and so does the
-docstring of `services/__init__.py`. The `services` package belongs to one server: generation refuses a second server
-package beside the first, in a later run or in the same batch, since its `main.py` would import the same `services`
-package; give each server package a parent package of its own. Generation also refuses a module named `services.py`
+generation only while a module is missing. Each stub names the server package it was written for, and the docstring
+of `services/__init__.py` records the server package that owns the `services` package. The `services` package belongs
+to one server: generation refuses a second server package beside the first, in a later run or in the same batch,
+since its `main.py` would import the same `services` package; give each server package a parent package of its own.
+A server package that you rename or move within its parent package, or name from another import root, such as
+`app.server` after `src.app.server`, takes the `services` package over once the server package the docstring names no
+longer has a `main.py` there, and generation rewrites that name in the docstring; to hand the package over while the
+other server package stays, edit the name in the docstring yourself. Generation also refuses a module named `services.py`
 beside the server package, a module of yours or the models, since Python would import only one of it and the
 `services` package. An application of your own, such as one with a `lifespan`, also belongs
 outside the package and calls `create_app` itself. `--check` treats every `.py` file under `--server-output` as

@@ -106,7 +106,8 @@ class GeneratedArtifact:
     """Carry one generated file: its bytes, and whether writing them changes the file at its path.
 
     An `implementation` is a module of the user's that generation writes with stubs only while it is missing; one that
-    exists is kept, without content.
+    exists is kept, without content, but for the initializer of a `services` package another server package left,
+    whose docstring generation rewrites to name the server package that takes the package over.
     """
 
     path: Path

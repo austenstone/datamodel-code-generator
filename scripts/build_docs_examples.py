@@ -440,13 +440,19 @@ def api_overview_examples(page: str, path: Path) -> tuple[DocsExample, ...]:
                 "commands",
                 lambda: fenced(
                     "bash",
-                    "\n\n".join(
-                        f"# {title}\n{command(api_quick_start_arguments(target))}"
-                        for target, title in (
-                            ("server", "FastAPI server package in app/server/"),
-                            ("client", "HTTPX2 client package in app/client/"),
-                        )
-                    ),
+                    "\n\n".join((
+                        (
+                            "# The application package app, which the generated packages go into\n"
+                            "mkdir -p app && touch app/__init__.py"
+                        ),
+                        *(
+                            f"# {title}\n{command(api_quick_start_arguments(target))}"
+                            for target, title in (
+                                ("server", "FastAPI server package in app/server/"),
+                                ("client", "HTTPX2 client package in app/client/"),
+                            )
+                        ),
+                    )),
                 ),
             ),
             (

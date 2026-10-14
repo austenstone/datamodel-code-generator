@@ -34,7 +34,7 @@ def run_target(  # noqa: PLR0913, PLR0917
     namespace: Namespace,
     config: Any,
     pyproject_path: Path | None,
-    batch: list[tuple[str, PlannedTarget, str]] | None = None,
+    batch: list[tuple[str, PlannedTarget, str | None]] | None = None,
     lock: Any = None,
     job: str = "",
     implied: dict[str, Any] | None = None,
@@ -44,8 +44,9 @@ def run_target(  # noqa: PLR0913, PLR0917
 
     A model setting the target needs but the config lacks is refused like a model option conflict, before the run. A
     batch `job` appends the planned target to the targets its `batch` has planned instead of publishing it, and its
-    models record into the batch's remote `lock`. A single run publishes its target as a batch of one, so a failed
-    publication is reported as for the model runs that publish through the same journal.
+    models record into the batch's remote `lock`; a job that checks its target appends it without a notice, so that
+    later jobs are refused the server packages it plans as when they write them. A single run publishes its target as
+    a batch of one, so a failed publication is reported as for the model runs that publish through the same journal.
 
     The config already holds the settings the target `implied`, which no option, key, or preset set; the JSON payloads
     name them under `target.implied`. After a run that succeeds, stderr shows how to set the `announced` ones: the
@@ -140,7 +141,7 @@ def _run(  # noqa: PLR0913, PLR0917
     namespace: Namespace,
     config: Any,
     pyproject_path: Path | None,
-    batch: list[tuple[str, PlannedTarget, str]] | None,
+    batch: list[tuple[str, PlannedTarget, str | None]] | None,
     lock: Any,
     job: str,
     implied: dict[str, Any],
@@ -158,7 +159,6 @@ def _run(  # noqa: PLR0913, PLR0917
         implied_conflict,
         plan_target,
         prepare_target,
-        render_target,
     )
     from datamodel_code_generator._target_selection import target_of  # noqa: PLC0415
 
@@ -173,7 +173,10 @@ def _run(  # noqa: PLR0913, PLR0917
     implied_conflict(config, implied, generator)
     notice = _implied_notice(announced, args, config, namespace, pyproject_path, job)
     if config.check:
-        project = render_target(source, model_config=effective, config=target, generator=generator)
+        planned = plan_target(source, model_config=effective, config=target, generator=generator, job=job)
+        if batch is not None:
+            _join(batch, job, planned, None)
+        project = planned.project
         comparison = _compare_target(project, config.output, target.output, config.encoding)
         _write_comparison_output(comparison, namespace.output_format, target=_target_payload(target, project, implied))
         _print_notice(notice)
@@ -198,10 +201,12 @@ def _run(  # noqa: PLR0913, PLR0917
     json_output = namespace.output_format == "json"
     if batch is not None:
         timestamp = next((earlier.timestamp for _, earlier, _ in batch if earlier.timestamp is not None), None)
-        planned = plan_target(source, model_config=effective, config=target, generator=generator, timestamp=timestamp)
+        planned = plan_target(
+            source, model_config=effective, config=target, generator=generator, timestamp=timestamp, job=job
+        )
+        _join(batch, job, planned, _next_step(target, planned.project, notice))
         if json_output:
             print(_target_json(planned.project, config.output, config.encoding, target, implied))  # noqa: T201
-        batch.append((job, planned, _next_step(target, planned.project, notice)))
         return _OK
     planned = plan_target(source, model_config=effective, config=target, generator=generator, publish=True)
     project = planned.project
@@ -215,15 +220,27 @@ def _run(  # noqa: PLR0913, PLR0917
     return _OK
 
 
-def publish_targets(files: Iterable[StagedFile], targets: Sequence[tuple[str, PlannedTarget, str]]) -> None:
+def _join(
+    batch: list[tuple[str, PlannedTarget, str | None]], job: str, planned: PlannedTarget, notice: str | None
+) -> None:
+    """Append a job's planned target to its batch, refusing a server package that shares an earlier job's services."""
+    from datamodel_code_generator._api_generation import check_shared_services  # noqa: PLC0415
+
+    check_shared_services(job, planned, ((earlier, target) for earlier, target, _ in batch))
+    batch.append((job, planned, notice))
+
+
+def publish_targets(files: Iterable[StagedFile], targets: Sequence[tuple[str, PlannedTarget, str | None]]) -> None:
     """Publish the staged files of a batch and the targets its jobs planned through one journal.
 
-    Each target's dependency notice follows the publication on stderr, as after a single run.
+    Each target's dependency notice follows the publication on stderr, as after a single run. A target that a job
+    only checked has no notice and is not published.
     """
     from datamodel_code_generator._api_generation import publish_planned  # noqa: PLC0415
 
-    publish_planned(files, [(job, planned) for job, planned, _ in targets])
-    for _, _, notice in targets:
+    written = [(job, planned, notice) for job, planned, notice in targets if notice is not None]
+    publish_planned(files, [(job, planned) for job, planned, _ in written])
+    for _, _, notice in written:
         print(notice, file=sys.stderr)  # noqa: T201
 
 
@@ -484,13 +501,16 @@ def _run_commands(app: str, entrypoint: str) -> tuple[str, str]:
 
     The import root is the package directory without the package's dotted parts, relative to the working directory;
     uvicorn adds it with `--app-dir`. `fastapi dev` imports a top-level package from the path of `main.py`, and a
-    nested one, whose parent may lack an initializer, by its import string from the import root.
+    nested one, whose parent may lack an initializer, by its import string from the import root. Paths are quoted for
+    the shell where they need it.
     """
+    from shlex import quote  # noqa: PLC0415
+
     parts = PurePosixPath(entrypoint).parent.parts
     depth = app.partition(":")[0].count(".")
-    root = PurePosixPath(*parts[: max(len(parts) - depth, 0)], *[".."] * (depth - len(parts)))
-    app_dir, directory = (f"--app-dir {root} ", f"--directory {root} ") if root.parts else ("", "")
-    run = f"fastapi dev {entrypoint}" if depth == 1 else f"{directory}fastapi dev --entrypoint {app}"
+    root = quote(str(PurePosixPath(*parts[: max(len(parts) - depth, 0)], *[".."] * (depth - len(parts)))))
+    app_dir, directory = (f"--app-dir {root} ", f"--directory {root} ") if root != "." else ("", "")
+    run = f"fastapi dev {quote(entrypoint)}" if depth == 1 else f"{directory}fastapi dev --entrypoint {app}"
     return f"{app_dir}{app}", run
 
 

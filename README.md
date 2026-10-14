@@ -351,6 +351,9 @@ components:
 <!-- fmt: off -->
 
 ```bash
+# The application package app, which the generated packages go into
+mkdir -p app && touch app/__init__.py
+
 # FastAPI server package in app/server/
 datamodel-codegen \
   --input openapi.yaml \

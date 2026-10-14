@@ -32,6 +32,7 @@ from datamodel_code_generator._client.runtime import (
     declared_helpers,
     declared_security,
 )
+from datamodel_code_generator._client.streams import stream_only
 from datamodel_code_generator._client.uploads import UploadSpec
 from datamodel_code_generator._runtime.client.security import SecurityScheme
 from datamodel_code_generator._runtime.model_codecs.media import media_kind
@@ -3181,7 +3182,7 @@ class ClientRenderer:
             package=config.package,
             public_modules=f"{', '.join(public)}, and response types",
             reference="_generated_docs/runtime.md",
-            example=self.example(summaries[0][1]) if summaries else None,
+            example=self.example([keywords for _, keywords in summaries]) if summaries else None,
             credentials=[CredentialLabel(item.name, _KIND_LABELS[item.scheme.kind]) for item in self.plan.credentials],
             signature_style=config.signature_style,
             body_arguments=config.body_arguments,
@@ -3203,19 +3204,27 @@ class ClientRenderer:
             runtime=[{"package": package, "modules": modules} for package, modules in groups.items()],
         )
 
-    def example(self, keywords: tuple[str, ...]) -> dict[str, object]:
-        """Return the README's call of the first operation: the client's arguments, the call, and what they assume.
+    def example(self, keywords: list[tuple[str, ...]]) -> dict[str, object]:
+        """Return the README's call of an operation: the client's arguments, the call, and what they assume.
 
-        The client sends to the operation's default server with the credentials of its first security alternative,
-        and the call gives the keywords the operation requires, `...` standing for each value without a literal.
+        The operation is the first that is neither the handshake of a WebSocket helper nor one whose success bodies are
+        all event streams or NDJSON, or the first of all without one. The client sends to its default server with the
+        credentials of its first security alternative. `keywords` holds the keywords each operation requires, in
+        operation order, `...` standing for each value without a literal.
         """
-        spec = self.plan.operations[0]
+        sockets = {item.operation.index for item in self.sockets}
+        operations = self.plan.operations
+        index = next(
+            (index for index, spec in enumerate(operations) if spec.index not in sockets and not stream_only(spec)),
+            0,
+        )
+        spec = operations[index]
         server = spec.servers[0].default_url
         names = {item.scheme.name: item.name for item in self.plan.credentials}
         alternative = spec.security.alternatives[0] if spec.security is not None and spec.security.alternatives else ()
         secured = [f"{names[item.scheme.name]}={_CREDENTIAL_VALUES[item.scheme.kind]}" for item in alternative]
         arguments = ", ".join((f"base_url={json.dumps(server)}", *secured))
-        call = f"client.{spec.resource}.{spec.name}({', '.join(keywords)})"
+        call = f"client.{spec.resource}.{spec.name}({', '.join(keywords[index])})"
         return {
             "operation": f"{spec.resource}.{spec.name}",
             "server": server,

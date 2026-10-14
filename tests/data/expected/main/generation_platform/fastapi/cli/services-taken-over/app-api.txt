@@ -1,0 +1,12 @@
+Add the runtime dependencies of app.api to your project:
+  uv add "fastapi>=0.141.1" "pydantic>=2.14.0" "typing-extensions>=4.16"
+Next steps: run the server with your services in app/services/pets.py, app/services/store.py:
+  uv add uvicorn && uv run uvicorn app.api.main:app --reload
+or: uv add "fastapi[standard]" && uv run fastapi dev --entrypoint app.api.main:app
+See app/api/README.md.
+"""Your implementations of app.api, which app.api.main imports.
+
+datamodel-code-generator wrote this file once and never overwrites it, or the modules beside it."""
+
+# Yours
+Error: app/services/__init__.py: The app.services package holds the implementations of the server package app.api, as the docstring of its __init__.py says, and app.other.main would import them too: put each server package under a parent package of its own, or name app.other in that docstring when app.api is no longer used

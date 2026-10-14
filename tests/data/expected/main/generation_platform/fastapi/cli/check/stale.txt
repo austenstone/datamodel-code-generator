@@ -560,7 +560,7 @@ EXTRA: server/routers/store.py (no longer generated)
  from services.pets import Pets
 -from services.store import Store
  
- app = FastAPI(lifespan=lifespan, exception_handlers=exception_handlers)
+ app = FastAPI()
 -app.include_router(build_router(pets=Pets(), store=Store()))
 +app.include_router(build_router(pets=Pets()))
  ```

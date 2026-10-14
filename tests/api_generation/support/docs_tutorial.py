@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 SERVER_URL = "http://localhost:8000"
 RUNNING = re.compile(r"Uvicorn running on (\S+)")
 DURATION = re.compile(r" in \d+(?:\.\d+)?s\b")
-NOISY_VARIABLES = frozenset({"COLUMNS", "FORCE_COLOR", "PYTEST_ADDOPTS", "PY_COLORS"})
+NOISY_VARIABLES = frozenset({"COLUMNS", "FORCE_COLOR", "PYTEST_ADDOPTS", "PYTEST_XDIST_WORKER", "PY_COLORS"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,10 +94,13 @@ def run_tests(root: Path, *tests: str) -> str:
 
 
 @contextmanager
-def serve(root: Path) -> Iterator[str]:
-    """Serve a project's generated entrypoint, `app.server.main:app`, with uvicorn on a free port, yielding its URL."""
+def serve(root: Path, *arguments: str) -> Iterator[str]:
+    """Serve an application with uvicorn on a free port from a directory, yielding its URL.
+
+    The arguments name the application, such as `app.server.main:app`, and any options, such as `--app-dir`.
+    """
     with subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.server.main:app", "--port", "0"],
+        [sys.executable, "-m", "uvicorn", *arguments, "--port", "0"],
         cwd=root,
         env=_environment(),
         stdout=subprocess.DEVNULL,

@@ -11,6 +11,7 @@ import pytest
 
 from datamodel_code_generator import (
     DataModelType,
+    Error,
     InputFileType,
     LeftoverFilesWarning,
     OpenAPIScope,
@@ -31,6 +32,7 @@ from tests.data.python.custom_formatters.shift_frozen_time import CodeFormatter
 from tests.main.conftest import (
     TIMESTAMP,
     InputFileTypeLiteral,
+    run_generate_and_assert,
     run_main_and_assert,
     run_main_with_args,
     run_main_with_system_exit,
@@ -83,6 +85,15 @@ CONFIGURED = [
     '{"/paths/~1pets/get": {"query:limit": "page_size", "header:X-Request-Id": "trace"}}',
     *("--server-handler-modes", '{"/paths/~1pets/get": "sync"}'),
 ]
+
+GENERATE_OPTIONS = {
+    "input_file_type": InputFileType.OpenAPI,
+    "target_python_version": PythonVersion.PY_311,
+    "openapi_scopes": [OpenAPIScope.Schemas, OpenAPIScope.Api],
+    "output_model_type": DataModelType.PydanticV2BaseModel,
+    "formatters": [Formatter.BUILTIN],
+    "disable_timestamp": True,
+}
 
 assert_file_content = create_assert_file_content(EXPECTED)
 
@@ -1676,7 +1687,7 @@ def test_fastapi_cli_shared_parent_jobs(
     """Refuse two server jobs in one parent package, which would import their implementations from one package.
 
     Neither the document each job reads, the router groups it has, nor a module of the user's already in place changes
-    that.
+    that. The batch is refused while it plans, so a check, with text or JSON output, is refused as generation is.
     """
     monkeypatch.chdir(tmp_path)
     _copy(tmp_path, pyproject)
@@ -1685,10 +1696,29 @@ def test_fastapi_cli_shared_parent_jobs(
     if stub:
         (tmp_path / "services").mkdir()
         (tmp_path / "services" / "pets.py").write_text("# Yours\n", encoding="utf-8")
-    run_main_with_args(["--all-jobs"], expected_exit=Exit.ERROR)
+    for mode in ([], ["--output-format", "json"], ["--check"], ["--check", "--output-format", "json"]):
+        run_main_with_args(["--all-jobs", *mode], expected_exit=Exit.ERROR)
     captured = capsys.readouterr()
     written = sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*.py"))
-    assert_output(f"{captured.err}written: {written}\n", EXPECTED / "cli" / expected)
+    assert_output(f"{captured.err}stdout:\n{captured.out}written: {written}\n", EXPECTED / "cli" / expected)
+
+
+def test_fastapi_cli_shared_parent_later_job(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuse a job whose server package would share the `services` package of a server package generated before.
+
+    The refusal names the job, as the refusal of two jobs of one batch does.
+    """
+    monkeypatch.chdir(tmp_path)
+    _copy(tmp_path, "pyproject-shared-parent-jobs.toml")
+    run_main_with_args(["--job", "server"])
+    capsys.readouterr()
+    run_main_with_args(["--job", "admin"], expected_exit=Exit.ERROR)
+    written = (tmp_path / "admin").exists()
+    assert_output(
+        f"{capsys.readouterr().err}admin written: {written}\n", EXPECTED / "cli" / "shared-parent-later-job.txt"
+    )
 
 
 @pytest.mark.parametrize("package", ["server_a", "pkg.server_a"], ids=["top-level", "nested"])
@@ -1698,29 +1728,105 @@ def test_fastapi_cli_shared_parent_runs(
     """Refuse a server package beside another one generated before, whose `services` package it would import too.
 
     The docstring of the `services` initializer names the server package it belongs to, which regenerates as before.
+    A check, with text or JSON output, and generate() refuse it as generation does.
     """
     monkeypatch.chdir(tmp_path)
     _copy(tmp_path)
     other = package.replace("server_a", "server_b")
+    expected = EXPECTED / "cli" / "shared-parent-runs"
 
-    def run(name: str, expected_exit: Exit = Exit.OK) -> None:
-        arguments = ["--input", "pets.yaml", "--input-file-type", "openapi", "--output", "models.py"]
+    def run(name: str, *extra: str, expected_exit: Exit = Exit.OK) -> None:
+        arguments = ["--input", "pets.yaml", "--input-file-type", "openapi", "--output", "models.py", *extra]
         server = _server("--server-package", name, output=name.replace(".", "/"))
         run_main_with_args([*arguments, *server], expected_exit=expected_exit)
 
     run(package)
     capsys.readouterr()
-    run(other, Exit.ERROR)
-    refused = capsys.readouterr().err
+    for mode in ([], ["--output-format", "json"], ["--check"], ["--check", "--output-format", "json"]):
+        run(other, *mode, expected_exit=Exit.ERROR)
+    refused = capsys.readouterr()
+    run_generate_and_assert(
+        input_=Path("pets.yaml"),
+        expected_error=Error,
+        expected_file=expected / f"{package}-generate.txt",
+        **GENERATE_OPTIONS,
+        output=Path("models.py"),
+        generate_server=ServerType.FastAPI,
+        server_output=Path(*other.split(".")),
+        server_package=other,
+        server_model_package="models",
+    )
     run(package)
     written = (tmp_path / other.replace(".", "/")).exists()
-    assert_output(f"{refused}{other} written: {written}\n", EXPECTED / "cli" / "shared-parent-runs" / f"{package}.txt")
+    assert_output(f"{refused.err}stdout:\n{refused.out}{other} written: {written}\n", expected / f"{package}.txt")
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "output"),
+    [
+        (("app.server", "app.models", "app/models.py"), ("app.api", "app.models", "app/models.py"), "app/api"),
+        (
+            ("src.app.server", "src.app.models", "src/app/models.py"),
+            ("app.server", "app.models", "src/app/models.py"),
+            "src/app/server",
+        ),
+    ],
+    ids=["renamed", "import-root"],
+)
+def test_fastapi_cli_services_taken_over(
+    first: tuple[str, str, str],
+    second: tuple[str, str, str],
+    output: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Leave the `services` package to a server package renamed or moved, or spelled from another import root.
+
+    The package the docstring of the `services` initializer names is gone, or is this server package, so the run
+    rewrites the docstring to name this one and keeps the rest of the file; another server package beside it is then
+    refused by the new name.
+    """
+    monkeypatch.chdir(tmp_path)
+    _copy(tmp_path)
+
+    def run(package: str, models: str, module: str, directory: str, expected_exit: Exit = Exit.OK) -> None:
+        run_main_with_args(
+            [
+                *("--input", "pets.yaml", "--input-file-type", "openapi", "--output", module),
+                *_server("--server-package", package, "--server-model-package", models, output=directory),
+            ],
+            expected_exit=expected_exit,
+        )
+
+    run(*first, first[0].replace(".", "/"))
+    services = tmp_path / output.rpartition("/")[0] / "services"
+    initializer = services / "__init__.py"
+    initializer.write_text(f"{initializer.read_text(encoding='utf-8')}\n# Yours\n", encoding="utf-8")
+    if output != (moved := first[0].replace(".", "/")):
+        shutil.move(tmp_path / moved, tmp_path / output)
+    capsys.readouterr()
+    run(*second, output)
+    taken = capsys.readouterr().err
+    other = f"{second[0].rpartition('.')[0]}.other"
+    run(other, second[1], second[2], output.replace(output.rpartition("/")[2], "other"), Exit.ERROR)
+    assert_output(
+        f"{taken}{initializer.read_text(encoding='utf-8')}{capsys.readouterr().err}",
+        EXPECTED / "cli" / "services-taken-over" / f"{output.replace('/', '-')}.txt",
+    )
 
 
 @pytest.mark.parametrize(
     ("output", "package"),
-    [("server", "server"), ("src/app/server", "app.server"), ("src/server", "server"), ("app/server", "app.server")],
-    ids=["flat", "src", "src-top-level", "nested"],
+    [
+        ("server", "server"),
+        ("src/app/server", "app.server"),
+        ("src/server", "server"),
+        ("app/server", "app.server"),
+        ("my src/app/server", "app.server"),
+        ("my src/server", "server"),
+    ],
+    ids=["flat", "src", "src-top-level", "nested", "src-with-space", "src-top-level-with-space"],
 )
 def test_fastapi_cli_run_commands(
     output: str, package: str, tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
@@ -1728,7 +1834,7 @@ def test_fastapi_cli_run_commands(
     """Print the commands that run the server from the working directory, adding its import root when it lies below.
 
     uvicorn takes the import root with `--app-dir`; `fastapi dev` takes the path of `main.py` for a top-level package,
-    and the import string from the import root for a nested one.
+    and the import string from the import root for a nested one. A path the shell would split is quoted.
     """
     monkeypatch.chdir(tmp_path)
     _copy(tmp_path)
@@ -1738,7 +1844,8 @@ def test_fastapi_cli_run_commands(
         *("--input", "pets.yaml", "--input-file-type", "openapi", "--output", models),
         *_server("--server-package", package, "--server-model-package", model_package, output=output),
     ])
-    assert_output(capsys.readouterr().err, EXPECTED / "cli" / "run-commands" / f"{output.replace('/', '-')}.txt")
+    name = output.replace("/", "-").replace(" ", "_")
+    assert_output(capsys.readouterr().err, EXPECTED / "cli" / "run-commands" / f"{name}.txt")
 
 
 @pytest.mark.parametrize(

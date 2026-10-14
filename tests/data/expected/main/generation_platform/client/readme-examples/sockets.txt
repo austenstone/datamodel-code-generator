@@ -1,0 +1,4 @@
+# sockets
+example 1: imports ['Client'], calls ['client.rooms.room_socket']
+example 2: imports ['AsyncClient'], calls ['client.rooms.room_socket']
+example 3: imports ['APIConnectionError', 'APIStatusError', 'Client', 'NotFoundError'], calls ['client.rooms.room_socket']

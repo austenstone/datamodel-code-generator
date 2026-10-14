@@ -136,7 +136,7 @@ Everything goes into one application package, `app`, as in the [server quick sta
 create it with an empty `app/__init__.py`.
 
 ```bash
-mkdir app && touch app/__init__.py
+mkdir -p app && touch app/__init__.py
 ```
 
 Put the settings in `pyproject.toml` and run `datamodel-codegen` without arguments, or pass them as options:

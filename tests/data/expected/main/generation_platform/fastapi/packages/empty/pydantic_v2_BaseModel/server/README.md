@@ -51,7 +51,7 @@ Subclass the Protocol, so that type checkers report a missing or mismatched meth
 The package looks each method up when it registers the routes, and refuses a coroutine function where the operation's handler mode needs a plain method, or the reverse, and a method that cannot take the keyword arguments of its operation; type checkers check their types.
 
 Call `create_app` yourself to pass other instances.
-Tests pass fakes, as this pytest test does with FastAPI's `TestClient`, which needs `httpx`.
+Tests pass fakes, as this pytest test does with FastAPI's `TestClient`, which needs `httpx2`.
 An application that builds its services with arguments, such as a database pool or settings, calls `create_app` in a module of its own and runs that module's application instead of `main.py`'s.
 
 ```python
@@ -73,7 +73,7 @@ from fastapi import FastAPI
 
 from server import build_router
 
-app = FastAPI(lifespan=lifespan, exception_handlers=exception_handlers)
+app = FastAPI()
 app.include_router(build_router())
 ```
 

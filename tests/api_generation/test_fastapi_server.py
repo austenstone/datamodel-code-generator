@@ -5,6 +5,7 @@ The cross-target cases call each server through the client generated from the sa
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 
@@ -25,7 +26,11 @@ from scripts.build_docs_examples import (
 from tests.api_generation.support.cross_targets import cross_report
 from tests.api_generation.support.docs_tutorial import generate_project, run_python, run_tests, serve
 from tests.api_generation.support.fastapi_charsets import text_charsets
-from tests.api_generation.support.fastapi_entrypoint import fastapi_entrypoint_report
+from tests.api_generation.support.fastapi_entrypoint import (
+    fastapi_entrypoint_report,
+    readme_examples_report,
+    run_commands_report,
+)
 from tests.api_generation.support.fastapi_openapi import SCENARIOS, fastapi_openapi_report
 from tests.api_generation.support.fastapi_server import fastapi_server_report
 from tests.api_generation.support.fastapi_upstream import fastapi_upstream_report
@@ -37,6 +42,7 @@ from tests.conftest import (
     create_assert_file_content,
     write_generated_modules,
 )
+from tests.main.conftest import run_main_with_args
 
 DATA = Path(__file__).parents[1] / "data"
 CODECS = DATA / "generation_platform/codecs/pydantic"
@@ -231,7 +237,7 @@ def test_docs_tutorial_client(
     """Serve the tutorial with uvicorn and call it with the client generated from the same document."""
     server = generate_project(TUTORIAL, tmp_path / "server", docs_project_arguments("tutorial"), monkeypatch, capsys)
     expected = EXPECTED_DOCS_PROJECTS / "tutorial"
-    with serve(server.root) as url:
+    with serve(server.root, "app.server.main:app") as url:
         client = generate_project(
             TUTORIAL, tmp_path / "client", api_quick_start_arguments("client"), monkeypatch, capsys, server_url=url
         )
@@ -264,3 +270,26 @@ def test_fastapi_entrypoint(tmp_path: Path) -> None:
     report, stubs = fastapi_entrypoint_report(tmp_path)
     assert_output(report, EXPECTED / "entrypoint.txt")
     assert_generated_modules_output(stubs, EXPECTED / "packages" / "entrypoint")
+
+
+def test_fastapi_readme_examples(tmp_path: Path) -> None:
+    """Run the test and router examples of the READMEs of an unsecured and a secured server as a reader copies them."""
+    assert_output(readme_examples_report(tmp_path), EXPECTED / "readme-examples.txt")
+
+
+@pytest.mark.parametrize("output", ["src/app/server", "my src/app/server"], ids=["src", "src-with-space"])
+def test_fastapi_run_commands(
+    output: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Serve a server generated into a `src` layout with the commands its run notice prints, from the same directory."""
+    monkeypatch.chdir(tmp_path)
+    shutil.copy2(DATA / "generation_platform/fastapi/pets.yaml", tmp_path / "pets.yaml")
+    capsys.readouterr()
+    run_main_with_args([
+        *("--input", "pets.yaml", "--input-file-type", "openapi", "--output", f"{output.rpartition('/')[0]}/models.py"),
+        *("--target-python-version", "3.11", "--openapi-scopes", "schemas", "api", "--disable-timestamp"),
+        *("--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", "--generate-server", "fastapi"),
+        *("--server-output", output, "--server-package", "app.server", "--server-model-package", "app.models"),
+    ])
+    report = run_commands_report(tmp_path, capsys.readouterr().err)
+    assert_output(report, EXPECTED / "run-commands" / f"{output.replace(' ', '_').replace('/', '-')}.txt")

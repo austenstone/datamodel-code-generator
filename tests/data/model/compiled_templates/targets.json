@@ -2647,19 +2647,19 @@
           "protocols": "Pets, Other",
           "services": [
             {
-              "implementation": "PetService",
+              "implementation": "Default",
               "protocol": "Pets",
               "secured": true,
               "methods": "get and create"
             },
             {
-              "implementation": "OtherService",
+              "implementation": "Default_1",
               "protocol": "Other",
               "secured": false,
               "methods": "list"
             }
           ],
-          "arguments": "pets=PetService(), authorize=authorize",
+          "arguments": "default=Default(), other=Default_1(), authorize=authorize",
           "forms": true,
           "raw_request": true,
           "app": "server.main:app",
@@ -2676,6 +2676,15 @@
               "stub": "\u001fimplementation:services/default.py\u001f"
             },
             {
+              "module": "app.services.other",
+              "name": "Default",
+              "alias": "Default_1",
+              "keyword": "other",
+              "base": "OtherService",
+              "file": "../services/other.py",
+              "stub": "\u001fimplementation:services/other.py\u001f"
+            },
+            {
               "module": "app.services.authorize",
               "name": "authorize",
               "alias": "authorize",
@@ -2685,7 +2694,7 @@
               "stub": "\u001fimplementation:services/authorize.py\u001f"
             }
           ],
-          "fakes": "pets=FakePetService(), authorize=authorize",
+          "fakes": "default=FakeDefault(), other=FakeDefault_1(), authorize=authorize",
           "dependencies": [
             "fastapi>=0.141.1",
             "pydantic>=2.14.0",
