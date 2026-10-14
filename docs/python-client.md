@@ -230,7 +230,6 @@ app/
 │   ├── _generated_docs/
 │   ├── _runtime/
 │   ├── errors.py
-│   ├── model_codecs.py
 │   ├── options.py
 │   ├── py.typed
 │   ├── resources/
@@ -248,8 +247,9 @@ app/
 <!-- fmt: on -->
 <!-- END AUTO-GENERATED DOC EXAMPLE: python-client.tutorial.tree -->
 
-`app/client/__init__.py` exports `Client` and `AsyncClient`, `resources/` and `types/` hold a package for each resource, and
-`errors.py`, `options.py`, and `responses.py` are the public modules you import from. `_generated/` and `_runtime/`
+`app/client/__init__.py` exports `Client` and `AsyncClient`, `resources/` and `types/` hold a package for each resource,
+`types/__init__.py` exports `JSONValue`, the type of an argument that takes any JSON value, and `errors.py`,
+`options.py`, and `responses.py` are the public modules you import from. `_generated/` and `_runtime/`
 hold the plans and the runtime the package imports. `README.md` shows how to call the package and lists the method of
 every operation with its signature, and `_generated_docs/runtime.md` is the runtime reference it links to.
 Every file here is overwritten on each run, so keep your own code outside `app/client/`.

@@ -1,0 +1,2 @@
+generate()
+  Error: --client-resource-names['pets'].namespace: A resource namespace cannot use the reserved name 'JSONValue'; --client-operations['/paths/~1pets/get'].resource: A resource namespace cannot use the reserved name 'JSONValue'

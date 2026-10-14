@@ -379,6 +379,7 @@ def test_client_readme_examples(case: str, tmp_path: Path) -> None:
         "retry-unknown-field",
         "compression-values",
         "compression-invalid",
+        "reserved-type-name",
     ],
 )
 def test_client_config(case: str, tmp_path: Path) -> None:

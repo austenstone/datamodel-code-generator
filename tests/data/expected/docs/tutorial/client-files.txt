@@ -32,7 +32,6 @@ app/client/_runtime/model_codecs/pydantic_adapters.py
 app/client/_runtime/model_codecs/pydantic_models.py
 app/client/_runtime/model_codecs/unset.py
 app/client/errors.py
-app/client/model_codecs.py
 app/client/options.py
 app/client/py.typed
 app/client/resources/__init__.py

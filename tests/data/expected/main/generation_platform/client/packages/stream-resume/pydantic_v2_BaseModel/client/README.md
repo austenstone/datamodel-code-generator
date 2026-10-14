@@ -72,7 +72,7 @@ Every exception of `client.errors` derives from `SDKError`; the runtime referenc
 Each method declares its parameters, its body, and its options as keyword arguments.
 A request body is given as `body=`, unless an operation's `body_arguments` is `both`.
 An optional argument defaults to its schema's default, or to `UNSET`, which leaves it out of the request; `options=RequestOptions(...)` sets the settings of one call.
-The signatures spell types as `resources/<resource>/_sync.py` imports them: from `client.options`, the result types from `client.types.<resource>`, the `models` models, and the other public modules.
+The signatures spell types as `resources/<resource>/_sync.py` imports them: from `client.options`, the result types from `client.types.<resource>`, `JSONValue`, the type of any JSON value, from `client.types`, the `models` models, and the other public modules.
 `--client-operations` takes the operation reference of each as its key.
 The `with_response`, `with_raw_response`, and `with_streaming_response` attributes of a resource hold the same methods, returning the result with its response metadata, the raw response, or a block that streams the response.
 

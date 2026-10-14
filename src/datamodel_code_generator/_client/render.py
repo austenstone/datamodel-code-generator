@@ -23,7 +23,7 @@ from datamodel_code_generator._client._compiled_templates import types as types_
 from datamodel_code_generator._client.caching import CacheSpec
 from datamodel_code_generator._client.codec_render import render_model_bindings
 from datamodel_code_generator._client.facade import Attribute, Lazy, Subclass, facade_module, name_set, statement
-from datamodel_code_generator._client.naming import CLIENT_KEYWORDS, VIEW_KEYWORDS, helper_classes
+from datamodel_code_generator._client.naming import CLIENT_KEYWORDS, TYPE_EXPORTS, VIEW_KEYWORDS, helper_classes
 from datamodel_code_generator._client.plan import media_range, member_parts, reachable, success_media
 from datamodel_code_generator._client.polling import STATES, PollingSpec
 from datamodel_code_generator._client.runtime import (
@@ -276,16 +276,13 @@ class _Facades:
         )
 
     @staticmethod
-    def model_codecs() -> Templated:
-        """Return the module of the JSON value type and the sentinel for an omitted argument."""
+    def types() -> Templated:
+        """Return the initializer of the types packages, which exports the type of a JSON value an argument takes."""
         return facade_module(
-            "model_codecs",
-            "JSON values and omitted arguments used by the generated client.",
-            imports=(
-                statement("._runtime.model_codecs.media", ("JSONValue",)),
-                statement("._runtime.model_codecs.unset", ("UNSET",)),
-            ),
-            exports=("JSONValue", "UNSET"),
+            "types",
+            "The types of the resources, and the type of any JSON value.",
+            imports=(statement(".._runtime.model_codecs.media", sorted(TYPE_EXPORTS)),),
+            exports=sorted(TYPE_EXPORTS),
         )
 
     @staticmethod
@@ -418,7 +415,7 @@ _Key: TypeAlias = _Model | _Parts | str
 _SURFACES: Final = {
     "form": ("bodies", "FormData", ""),
     "multipart": ("bodies", "MultipartData", "[bytes]"),
-    "wire": ("model_codecs", "JSONValue", ""),
+    "wire": ("types", "JSONValue", ""),
 }
 _Headers: TypeAlias = "dict[str, tuple[str, list[tuple[ResponseSpec, HeaderSpec]]]]"
 
@@ -1138,7 +1135,7 @@ class _Resources(_Typing):
         """Return the body type `request_raw` takes: the bodies of the package's request media, else bytes."""
         match self.raw_body:
             case "multipart":
-                return f"{module.local('bodies', f'{prefix}BodyInput')}[{module.local('model_codecs', 'JSONValue')}]"
+                return f"{module.local('bodies', f'{prefix}BodyInput')}[{module.local('types', 'JSONValue')}]"
             case "binary":
                 return module.local("bodies", f"{prefix or 'Sync'}BinaryBody")
             case _:
@@ -3310,7 +3307,6 @@ class ClientRenderer:
             yield self.file(PurePosixPath("auth.py"), "auth", auth)
         if (bodies := facades.bodies()) is not None:
             yield self.file(PurePosixPath("bodies.py"), "bodies", bodies)
-        yield self.file(PurePosixPath("model_codecs.py"), "model_codecs", facades.model_codecs())
         if (protocols := facades.protocols()) is not None:
             yield self.file(PurePosixPath("protocols", "__init__.py"), "protocols", protocols)
         resources_docstring = facades.docstring("resources", "The resources of the clients.")
@@ -3323,9 +3319,7 @@ class ClientRenderer:
             yield self.file(directory / "__init__.py", "package", facades.resource_package(resource))
             yield self.file(directory / "_sync.py", "resource", resources.resource(resource, asynchronous=False))
             yield self.file(directory / "_async.py", "resource", resources.resource(resource, asynchronous=True))
-        yield self.file(
-            PurePosixPath("types", "__init__.py"), "package", facades.docstring("types", "The types of the resources.")
-        )
+        yield self.file(PurePosixPath("types", "__init__.py"), "package", facades.types())
         types = _Types(self.plan, self.accessors, types=self.types)
         for resource in self.plan.resources:
             directory = PurePosixPath("types", *resource.parts)

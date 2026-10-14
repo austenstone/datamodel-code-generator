@@ -9,7 +9,6 @@
   file pets/_generated_docs/runtime.md
   file pets/_operations.py
   file pets/errors.py
-  file pets/model_codecs.py
   file pets/options.py
   file pets/py.typed
   file pets/resources/__init__.py
@@ -40,7 +39,6 @@
   file pets/_operations.py
   file pets/errors.py
   file pets/extensions.py
-  file pets/model_codecs.py
   file pets/options.py
   file pets/py.typed
   file pets/resources/__init__.py

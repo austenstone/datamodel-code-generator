@@ -10,7 +10,6 @@ render pydantic_v2.BaseModel
   client/_operations.py
   client/bodies.py
   client/errors.py
-  client/model_codecs.py
   client/options.py
   client/py.typed
   client/resources/__init__.py
@@ -38,7 +37,6 @@ render pydantic_v2.dataclass
   client/_operations.py
   client/bodies.py
   client/errors.py
-  client/model_codecs.py
   client/options.py
   client/py.typed
   client/resources/__init__.py
@@ -66,7 +64,6 @@ render dataclasses.dataclass
   client/_operations.py
   client/bodies.py
   client/errors.py
-  client/model_codecs.py
   client/options.py
   client/py.typed
   client/resources/__init__.py
@@ -94,7 +91,6 @@ render typing.TypedDict
   client/_operations.py
   client/bodies.py
   client/errors.py
-  client/model_codecs.py
   client/options.py
   client/py.typed
   client/resources/__init__.py
@@ -122,7 +118,6 @@ render msgspec.Struct
   client/_operations.py
   client/bodies.py
   client/errors.py
-  client/model_codecs.py
   client/options.py
   client/py.typed
   client/resources/__init__.py

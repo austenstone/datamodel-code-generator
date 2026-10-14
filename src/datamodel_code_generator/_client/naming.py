@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 _TOKEN: Final = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
+TYPE_EXPORTS: Final = frozenset({"JSONValue"})
 RESERVED_MEMBERS: Final = frozenset({
     "aclose",
     "close",
@@ -59,11 +60,19 @@ HELPER_ARGUMENTS: Final = frozenset({
 
 
 def namespace_problem(value: object) -> str | None:
-    """Return why a resource namespace is invalid, or None for dotted identifiers that name no member or device."""
+    """Return why a resource namespace is invalid, or None for dotted identifiers that name no member or device.
+
+    Its first part also names the resource's package in the `types` package, so it cannot be a name `types` exports.
+    """
     if not isinstance(value, str) or not all(explicit_name(part) for part in value.split(".")):
         return "A resource namespace must be dotted Python identifiers"
     if reserved := next(
-        (part for part in value.split(".") if part in RESERVED_MEMBERS or part.casefold() in WINDOWS_DEVICES), None
+        (
+            part
+            for index, part in enumerate(value.split("."))
+            if part in RESERVED_MEMBERS or part.casefold() in WINDOWS_DEVICES or (not index and part in TYPE_EXPORTS)
+        ),
+        None,
     ):
         return f"A resource namespace cannot use the reserved name {reserved!r}"
     return None

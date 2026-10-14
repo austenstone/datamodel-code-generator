@@ -10,7 +10,6 @@ generate()
   client/_operations.py
   client/bodies.py
   client/errors.py
-  client/model_codecs.py
   client/options.py
   client/py.typed
   client/resources/__init__.py
