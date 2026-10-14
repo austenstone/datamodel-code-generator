@@ -829,8 +829,9 @@ typing_options.add_argument(
 )
 typing_options.add_argument(
     "--use-typed-nullable-map-values",
-    help="Type the values of nullable maps, schemas typed [object, null] with additionalProperties, as their schema "
-    "says, with a model for object values. Without it the 0.83.0 form is kept, dict[str, Any] | None.",
+    help="Type the values of nullable maps, schemas whose type array lists object alone or with null, such as "
+    "[object, null] or [object], with additionalProperties, as their schema says, with a model for object values. "
+    "Without it the 0.83.0 form is kept, dict[str, Any] | None, or dict[str, Any] without null.",
     action="store_true",
     default=None,
 )

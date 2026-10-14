@@ -3605,14 +3605,26 @@ def test_main_openapi_nullable_map_value_types(output_file: Path, expected_file:
     )
 
 
-def test_main_openapi_nullable_map_value_types_parameters_scope(output_file: Path) -> None:
-    """Load the components a nullable map parameter references when only paths and parameters are in scope."""
+@pytest.mark.parametrize(
+    ("input_file", "expected_file"),
+    [
+        pytest.param("nullable_map_value_types.yaml", "nullable_map_value_types/parameters_scope.py", id="types"),
+        pytest.param(
+            "nullable_map_value_parameter_nested.yaml", "nullable_map_value_parameters/nested.py", id="nested"
+        ),
+        pytest.param("nullable_map_value_parameter_refs/api.yaml", "nullable_map_value_parameters/refs.py", id="refs"),
+    ],
+)
+def test_main_openapi_nullable_map_value_types_parameters_scope(
+    output_file: Path, input_file: str, expected_file: str
+) -> None:
+    """Load the components that parameters reference, also through nullable maps, with paths and parameters only."""
     run_main_and_assert(
-        input_path=OPEN_API_DATA_PATH / "nullable_map_value_types.yaml",
+        input_path=OPEN_API_DATA_PATH / input_file,
         output_path=output_file,
         input_file_type="openapi",
         assert_func=assert_file_content,
-        expected_file="nullable_map_value_types/parameters_scope.py",
+        expected_file=expected_file,
         extra_args=[
             "--output-model-type",
             DataModelType.PydanticV2BaseModel.value,
@@ -3996,10 +4008,11 @@ def test_main_openapi_nullable_map_value_all_of_duplicate(output_file: Path) -> 
     options=["--use-typed-nullable-map-values"],
     option_description="""Type the values of nullable maps as their schemas say instead of Any.
 
-A nullable map here is a schema whose type array lists only `object` and `null`, such as `type: [object, "null"]`,
-and that declares its values with `additionalProperties`. Without the `--use-typed-nullable-map-values` flag the
-output keeps the 0.83.0 form, `dict[str, Any] | None`, whatever the values are. A map made nullable by
-`nullable: true` keeps its typed values either way.
+A nullable map here is a schema whose type array lists `object` alone or with `null`, such as
+`type: [object, "null"]` or `type: [object]`, and that declares its values with `additionalProperties`. Without the
+`--use-typed-nullable-map-values` flag the output keeps the 0.83.0 form, `dict[str, Any] | None`, or
+`dict[str, Any]` when the type array has no `null`, whatever the values are. A map made nullable by `nullable: true`
+and a map typed `type: object` keep their typed values either way.
 
 With the flag the values follow their schema, such as `dict[str, int] | None` or `dict[str, Player] | None`, and an
 object value gets a model named after the map, such as `Teams1` for the values of `Teams`. Those value models take
@@ -4088,12 +4101,27 @@ def test_main_openapi_use_typed_nullable_map_values(output_file: Path) -> None:
             "collapse_roots_msgspec_reuse_model.py",
             id="collapse-roots-msgspec-reuse-model",
         ),
+        pytest.param(
+            "nullable_map_value_parameter_nested.yaml",
+            ["--openapi-scopes", "paths", "parameters"],
+            "parameter_nested.py",
+            id="parameter-nested",
+        ),
+        pytest.param(
+            "nullable_map_value_parameter_refs/api.yaml",
+            ["--openapi-scopes", "paths", "parameters"],
+            "parameter_refs.py",
+            id="parameter-refs",
+        ),
     ],
 )
 def test_main_openapi_nullable_map_values_untyped(
     output_file: Path, input_file: str, extra_args: list[str], expected_file: str
 ) -> None:
-    """Keep the 0.83.0 output of nullable maps, dict[str, Any] | None, without --use-typed-nullable-map-values."""
+    """Keep the 0.83.0 output of nullable maps, dict[str, Any] | None, without --use-typed-nullable-map-values.
+
+    Where 0.83.0 failed on models that parameters reference, only the models the output uses are loaded.
+    """
     run_main_and_assert(
         input_path=OPEN_API_DATA_PATH / input_file,
         output_path=output_file,
@@ -4109,6 +4137,12 @@ def test_main_openapi_nullable_map_values_untyped(
     ("input_file", "extra_args", "expected_directory"),
     [
         pytest.param("nullable_map_value_cycle_reuse.yaml", ["--reuse-model"], "cycle_reuse", id="cycle-reuse"),
+        pytest.param(
+            "nullable_map_value_cycle_reuse.yaml",
+            ["--reuse-model", "--collapse-reuse-models"],
+            "cycle_reuse_collapse_reuse_models",
+            id="cycle-reuse-collapse-reuse-models",
+        ),
         pytest.param(
             "nullable_map_value_layout.yaml",
             ["--output-model-type", DataModelType.TypingTypedDict.value, "--reuse-model"],
@@ -4126,7 +4160,10 @@ def test_main_openapi_nullable_map_values_untyped(
 def test_main_openapi_nullable_map_values_untyped_modules(
     output_dir: Path, input_file: str, extra_args: list[str], expected_directory: str
 ) -> None:
-    """Keep the 0.83.0 modules and models of nullable maps without --use-typed-nullable-map-values."""
+    """Keep the 0.83.0 modules and models of nullable maps without --use-typed-nullable-map-values.
+
+    An import cycle's internal module re-exports only the models it still defines, which 0.83.0 did not.
+    """
     run_main_and_assert(
         input_path=OPEN_API_DATA_PATH / input_file,
         output_path=output_dir,
