@@ -204,7 +204,7 @@ Next steps: call the API with the client:
 
   with Client(base_url=...) as client:
       client.pets.list_pets(...)
-See app/client/_generated_docs/README.md.
+See app/client/README.md.
 ```
 
 <!-- fmt: on -->
@@ -224,6 +224,7 @@ The run wrote the models and the `app.client` package:
 app/
 ├── __init__.py
 ├── client/
+│   ├── README.md
 │   ├── __init__.py
 │   ├── _generated/
 │   ├── _generated_docs/
@@ -249,7 +250,8 @@ app/
 
 `app/client/__init__.py` exports `Client` and `AsyncClient`, `resources/` and `types/` hold a package for each resource, and
 `errors.py`, `options.py`, and `responses.py` are the public modules you import from. `_generated/` and `_runtime/`
-hold the plans and the runtime the package imports, and `_generated_docs/` a README that lists every operation.
+hold the plans and the runtime the package imports. `README.md` shows how to call the package and lists the method of
+every operation with its signature, and `_generated_docs/runtime.md` is the runtime reference it links to.
 Every file here is overwritten on each run, so keep your own code outside `app/client/`.
 
 ### 3. Call the API

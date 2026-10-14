@@ -1,11 +1,11 @@
 # pets
 render pydantic_v2.BaseModel
+  client/README.md
   client/__init__.py
   client/_async_client.py
   client/_client.py
   client/_generated/__init__.py
   client/_generated/model_bindings.py
-  client/_generated_docs/README.md
   client/_generated_docs/runtime.md
   client/_operations.py
   client/bodies.py
@@ -28,12 +28,12 @@ render pydantic_v2.BaseModel
   client/types/pets/photos/_operations.py
   models.py
 render pydantic_v2.dataclass
+  client/README.md
   client/__init__.py
   client/_async_client.py
   client/_client.py
   client/_generated/__init__.py
   client/_generated/model_bindings.py
-  client/_generated_docs/README.md
   client/_generated_docs/runtime.md
   client/_operations.py
   client/bodies.py
@@ -56,12 +56,12 @@ render pydantic_v2.dataclass
   client/types/pets/photos/_operations.py
   models.py
 render dataclasses.dataclass
+  client/README.md
   client/__init__.py
   client/_async_client.py
   client/_client.py
   client/_generated/__init__.py
   client/_generated/model_bindings.py
-  client/_generated_docs/README.md
   client/_generated_docs/runtime.md
   client/_operations.py
   client/bodies.py
@@ -84,12 +84,12 @@ render dataclasses.dataclass
   client/types/pets/photos/_operations.py
   models.py
 render typing.TypedDict
+  client/README.md
   client/__init__.py
   client/_async_client.py
   client/_client.py
   client/_generated/__init__.py
   client/_generated/model_bindings.py
-  client/_generated_docs/README.md
   client/_generated_docs/runtime.md
   client/_operations.py
   client/bodies.py
@@ -112,12 +112,12 @@ render typing.TypedDict
   client/types/pets/photos/_operations.py
   models.py
 render msgspec.Struct
+  client/README.md
   client/__init__.py
   client/_async_client.py
   client/_client.py
   client/_generated/__init__.py
   client/_generated/model_bindings.py
-  client/_generated_docs/README.md
   client/_generated_docs/runtime.md
   client/_operations.py
   client/bodies.py

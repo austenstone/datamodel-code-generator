@@ -1,10 +1,10 @@
 app/__init__.py
+app/client/README.md
 app/client/__init__.py
 app/client/_async_client.py
 app/client/_client.py
 app/client/_generated/__init__.py
 app/client/_generated/model_bindings.py
-app/client/_generated_docs/README.md
 app/client/_generated_docs/runtime.md
 app/client/_operations.py
 app/client/_runtime/__init__.py

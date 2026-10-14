@@ -1,11 +1,11 @@
 # generate v1
   file api.yaml
+  file pets/README.md
   file pets/__init__.py
   file pets/_async_client.py
   file pets/_client.py
   file pets/_generated/__init__.py
   file pets/_generated/model_bindings.py
-  file pets/_generated_docs/README.md
   file pets/_generated_docs/runtime.md
   file pets/_operations.py
   file pets/errors.py
@@ -30,12 +30,12 @@
 # add pets/extensions.py, edit pets/_client.py, and write pets/resources/orders/__init__.py
 # generate v2
   file api.yaml
+  file pets/README.md
   file pets/__init__.py
   file pets/_async_client.py
   file pets/_client.py
   file pets/_generated/__init__.py
   file pets/_generated/model_bindings.py
-  file pets/_generated_docs/README.md
   file pets/_generated_docs/runtime.md
   file pets/_operations.py
   file pets/errors.py

@@ -659,7 +659,7 @@ impossible date, such as one with a leap second, is ignored. The two-digit year 
 is at most 50 years after receipt, as RFC 9110 reads it; a year below 100 in another form is read as 1969 to 2068.
 Without a valid hint, bounded exponential backoff applies. Retry waits consume the same logical budget as sending and
 decoding. `RetryOptions(respect_retry_after=False)` is an explicit application policy override, disclosed in every
-generated README, `client/_generated_docs/README.md`; it is never silently embedded in generated defaults.
+generated README, `client/README.md`; it is never silently embedded in generated defaults.
 
 ```python
 from client import Client

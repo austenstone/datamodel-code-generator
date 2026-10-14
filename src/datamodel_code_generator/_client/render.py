@@ -97,6 +97,8 @@ _CREDENTIAL_EXAMPLES: Final = {
     "basic": ("(username, password)", "username: str, password: str"),
     "bearer": ("token", "token: str"),
 }
+_CREDENTIAL_VALUES: Final = {"api_key": '"..."', "basic": '("...", "...")', "bearer": '"..."'}
+_EXAMPLE_VALUES: Final = {"str": '"..."', "int": "1", "float": "1.0", "bool": "True"}
 _FLOW_CLASSES: Final = {
     "client_credentials": ("ClientCredentials", "client credentials"),
     "refresh_token": ("RefreshToken", "refresh token"),
@@ -822,6 +824,7 @@ def _operation_summary(spec: OperationSpec) -> dict[str, object]:
         "name": f"{spec.resource}.{spec.name}",
         "method": spec.contract.method.upper(),
         "path": spec.contract.path,
+        "reference": spec.contract.id.use_site.pointer,
         "body_arguments": spec.body_arguments,
         "media": [
             {
@@ -835,6 +838,22 @@ def _operation_summary(spec: OperationSpec) -> dict[str, object]:
             for media in (() if spec.body is None else spec.body.media)
         ],
     }
+
+
+def _stub(name: str, parameters: Iterable[Parameter], returns: str) -> str:
+    """Return a method's signature as a stub without `self`, one keyword parameter on each line."""
+    lines = (
+        f"    {item.name}: {item.annotation}{f' = {item.default}' if item.default else ''}," for item in parameters
+    )
+    return "\n".join((f"def {name}(", "    *,", *lines, f") -> {returns}: ..."))
+
+
+def _example(argument: _Argument, spec: OperationSpec) -> str:
+    """Return the value a README's call gives a required keyword: a literal of its type or media, or `...`."""
+    if argument.name == "media_type" and spec.body is not None:
+        concrete = next((media.media_type for media in spec.body.media if not media_range(media.media_type)), None)
+        return "..." if concrete is None else repr(concrete)
+    return _EXAMPLE_VALUES.get(argument.annotation, "...")
 
 
 def _contract(spec: OperationSpec) -> dict[str, object]:
@@ -1268,6 +1287,38 @@ class _Resources(_Typing):
             imports=module.imports(),
         )
 
+    def resource_module(self, resource: ResourceSpec, prefix: str) -> TargetModule:
+        """Return the name scope of a resource module, which defines the resource class and its views' classes."""
+        names = (f"{prefix}{resource.pascal}{suffix}" for suffix in ("Resource", *(item[2] for item in _VIEWS)))
+        return TargetModule(self.types, names, level=len(resource.parts) + 2)
+
+    def summaries(self) -> Iterator[tuple[dict[str, object], tuple[str, ...]]]:
+        """Yield how the README shows each operation, with the keywords a call of it gives, in operation order.
+
+        The signature is the plain synchronous method's, spelled in the name scope of its resource module, and lists
+        the keywords also when the method takes them unpacked. A call gives each required keyword, with `body=` for a
+        required body that fields may replace.
+        """
+        modules = {resource.namespace: self.resource_module(resource, "") for resource in self.plan.resources}
+        for spec in self.plan.operations:
+            module = modules[spec.resource]
+            overloads, implementation = self.branches(module, spec, asynchronous=False, view="plain")
+            required = [item for item in implementation.parameters if item.default == "required"]
+            keywords = [f"{item.name}={_example(item, spec)}" for item in required]
+            if spec.body is not None and spec.body.required and all(item.name != "body" for item in required):
+                keywords.append("body=...")
+            yield (
+                {
+                    **_operation_summary(spec),
+                    "signature": _stub(
+                        spec.name, (item.record(module) for item in implementation.parameters), implementation.returns
+                    ),
+                    "overloads": bool(overloads),
+                    "module": PurePosixPath("resources", *spec.resource.split("."), "_sync.py").as_posix(),
+                },
+                tuple(keywords),
+            )
+
     def resource(self, resource: ResourceSpec, *, asynchronous: bool) -> Templated:
         """Return a resource module: the resource and its metadata, raw, and streaming views of every operation."""
         prefix = "Async" if asynchronous else ""
@@ -1275,7 +1326,7 @@ class _Resources(_Typing):
         views: list[tuple[View, str, str, str]] = [
             (view, attribute, f"{prefix}{resource.pascal}{suffix}", doc) for view, attribute, suffix, doc in _VIEWS
         ]
-        module = TargetModule(self.types, {main, *(name for _, _, name, _ in views)}, level=len(resource.parts) + 2)
+        module = self.resource_module(resource, prefix)
         cached = module.name("functools", "cached_property")
         attributes = [Member(attribute, name, f"The same operations, {doc}.") for _, attribute, name, doc in views]
         pascals = {item.namespace: item.pascal for item in self.plan.resources}
@@ -3110,8 +3161,10 @@ class ClientRenderer:
         """Return one generated file of the package, rendered through its role."""
         return RenderedFile(path=path, kind=kind, text=module.render(self.role))
 
-    def readme(self, capabilities: Capabilities, runtime: tuple[PurePosixPath, ...], *, bodies: bool) -> Templated:
-        """Describe the finalized package: its profile, operations, contracts, helpers, dependencies, and capabilities.
+    def readme(
+        self, capabilities: Capabilities, runtime: tuple[PurePosixPath, ...], resources: _Resources, *, bodies: bool
+    ) -> Templated:
+        """Describe the finalized package: how to call it, its operations, dependencies, and generation details.
 
         The runtime holds the paths of the copied runtime modules, and `bodies` marks a package with a bodies module.
         """
@@ -3121,17 +3174,20 @@ class ClientRenderer:
         for path in runtime:
             groups.setdefault(path.parent.as_posix(), []).append(path.name)
         public = ("options", *(("bodies",) if bodies else ()), "errors")
+        summaries = list(resources.summaries())
         return templated(
             "readme.jinja2",
             readme_template.render,
             package=config.package,
             public_modules=f"{', '.join(public)}, and response types",
-            reference="runtime.md",
+            reference="_generated_docs/runtime.md",
+            example=self.example(summaries[0][1]) if summaries else None,
+            credentials=[CredentialLabel(item.name, _KIND_LABELS[item.scheme.kind]) for item in self.plan.credentials],
             signature_style=config.signature_style,
             body_arguments=config.body_arguments,
             backend=self.backend,
             model_package=config.model_package,
-            operations=[_operation_summary(spec) for spec in self.plan.operations],
+            operations=[summary for summary, _ in summaries],
             contracts=json.dumps([_contract(spec) for spec in self.plan.operations], indent=2, ensure_ascii=True),
             helpers=json.dumps([_helper(spec) for spec in helpers], indent=2, ensure_ascii=True) if helpers else "",
             stream_label=self.stream_label if self.streams else "",
@@ -3146,6 +3202,28 @@ class ClientRenderer:
             capabilities=sorted(capabilities.helpers),
             runtime=[{"package": package, "modules": modules} for package, modules in groups.items()],
         )
+
+    def example(self, keywords: tuple[str, ...]) -> dict[str, object]:
+        """Return the README's call of the first operation: the client's arguments, the call, and what they assume.
+
+        The client sends to the operation's default server with the credentials of its first security alternative,
+        and the call gives the keywords the operation requires, `...` standing for each value without a literal.
+        """
+        spec = self.plan.operations[0]
+        server = spec.servers[0].default_url
+        names = {item.scheme.name: item.name for item in self.plan.credentials}
+        alternative = spec.security.alternatives[0] if spec.security is not None and spec.security.alternatives else ()
+        secured = [f"{names[item.scheme.name]}={_CREDENTIAL_VALUES[item.scheme.kind]}" for item in alternative]
+        arguments = ", ".join((f"base_url={json.dumps(server)}", *secured))
+        call = f"client.{spec.resource}.{spec.name}({', '.join(keywords)})"
+        return {
+            "operation": f"{spec.resource}.{spec.name}",
+            "server": server,
+            "arguments": arguments,
+            "call": call,
+            "secured": bool(secured),
+            "placeholders": "..." in arguments + call,
+        }
 
     def _accepted_encodings(self) -> dict[str, list[str]]:
         """Return the request codings each operation accepts, by its resource and method name."""
@@ -3310,12 +3388,17 @@ class ClientRenderer:
         files.append(self.file(PurePosixPath("_operations.py"), "operations", registry.module()))
         helpers = (*self.helper_files(resources), *webhooks)
         runtime = tuple(runtime_sources(capabilities.modules()))
-        documentation = PurePosixPath("_generated_docs")
-        readme = self.readme(capabilities, tuple(path for path, _ in runtime), bodies=bool(facades.body_groups))
+        readme = self.readme(
+            capabilities, tuple(path for path, _ in runtime), resources, bodies=bool(facades.body_groups)
+        )
         return (
             *files,
             *(RenderedFile(path=path, kind="runtime", text=text, verbatim=True) for path, text in runtime),
             *helpers,
-            self.file(documentation / "README.md", "readme", readme),
-            self.file(documentation / "runtime.md", "documentation", self.runtime_documentation(capabilities)),
+            self.file(PurePosixPath("README.md"), "readme", readme),
+            self.file(
+                PurePosixPath("_generated_docs", "runtime.md"),
+                "documentation",
+                self.runtime_documentation(capabilities),
+            ),
         )

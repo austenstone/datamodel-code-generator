@@ -402,7 +402,7 @@ Next steps: call the API with the client:
 
   with Client(base_url=...) as client:
       client.pets.list_pets(...)
-See app/client/_generated_docs/README.md.
+See app/client/README.md.
 ```
 
 <!-- fmt: on -->
