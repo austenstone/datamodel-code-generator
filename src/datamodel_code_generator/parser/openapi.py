@@ -942,7 +942,7 @@ class OpenAPIParser(JsonSchemaParser):
                 )
 
         if OpenAPIScope.Parameters in self.open_api_scopes and fields:
-            if self.use_typed_nullable_map_values:
+            if self._types_nullable_map_values:
                 for field_schema, schema_path in field_schemas:
                     self.parse_ref(field_schema, schema_path)
             # Using _create_data_model from parent class JsonSchemaParser
@@ -958,7 +958,7 @@ class OpenAPIParser(JsonSchemaParser):
                 dataclass_arguments=self.dataclass_arguments,
             )
             self.generation_store.register_model(model)
-            if not self.use_typed_nullable_map_values:
+            if not self._types_nullable_map_values:
                 self._parameter_models.append((model, tuple(self.model_resolver.current_root)))
             return self.data_type(reference=reference)
 
