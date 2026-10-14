@@ -4174,6 +4174,38 @@ def test_main_openapi_nullable_map_values_untyped_modules(
 
 
 @pytest.mark.parametrize(
+    "typed_args",
+    [
+        pytest.param([], id="untyped"),
+        pytest.param(["--use-typed-nullable-map-values"], id="typed-falls-back"),
+    ],
+)
+def test_main_openapi_nullable_map_values_untyped_parameter_layout(output_dir: Path, typed_args: list[str]) -> None:
+    """Write the untyped modules without the models only typed values use when typed parameter maps move models.
+
+    With --use-typed-nullable-map-values the typed values would add Value beside the parameters, so the output falls
+    back to the untyped parse, which loads only what the untyped parameter models use.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "nullable_map_value_parameter_layout.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        expected_directory=EXPECTED_OPENAPI_PATH / "nullable_map_untyped" / "parameter_layout",
+        extra_args=[
+            "--openapi-scopes",
+            "paths",
+            "parameters",
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            *typed_args,
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+@pytest.mark.parametrize(
     ("input_file", "output_model_type", "expected_directory"),
     [
         pytest.param(
