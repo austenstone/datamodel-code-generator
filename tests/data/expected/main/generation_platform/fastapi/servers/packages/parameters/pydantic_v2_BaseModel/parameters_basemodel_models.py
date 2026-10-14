@@ -63,9 +63,6 @@ RatiosGetQueryLimitsParameter = TypeAliasType(
 SizesGetQueryOneParameter = TypeAliasType("SizesGetQueryOneParameter", Literal['x'])
 
 
-SizesGetQueryLeastParameter = TypeAliasType("SizesGetQueryLeastParameter", Size)
-
-
 SizesGetQueryCapParameter = TypeAliasType("SizesGetQueryCapParameter", int | None)
 
 

@@ -9,6 +9,14 @@ from typing import Annotated
 from pydantic import Field, RootModel
 
 
+class Size(RootModel[int]):
+    root: Annotated[int, Field(ge=1)] = 10
+
+
+class Tags(RootModel[list[str] | None]):
+    root: Annotated[list[str] | None, Field(min_length=1)] = ['a']
+
+
 class Notes(RootModel[list[str]]):
     root: Annotated[list[str], Field(default_factory=list)]
 
@@ -51,21 +59,12 @@ type ValuesGetQueryLabelsParameter = Annotated[list[str] | None, Field(min_lengt
 type ValuesGetQueryRowsParameter = Annotated[list[int] | None, Field(min_length=1)]
 
 
-type ValuesGetQueryMarksParameter = Annotated[list[str], Field(min_length=1)]
-
-
 type ValuesGetQueryExtrasParameter = Annotated[list[str], Field(default_factory=list)]
-
-
-type ValuesGetQueryColorParameter = Color
 
 
 class ValuesGetQueryToneParameter(StrEnum):
     red = 'red'
     blue = 'blue'
-
-
-type ValuesGetQuerySizedParameter = Annotated[int, Field(ge=1)]
 
 
 type ValuesGetHeaderXColorsParameter = list[Color] | None

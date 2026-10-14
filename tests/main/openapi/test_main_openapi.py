@@ -11914,6 +11914,31 @@ def test_main_openapi_api_scope_path_names(output_file: Path, expected_file: str
     )
 
 
+@pytest.mark.parametrize("schema_version", ["3.0", "3.1"])
+def test_main_openapi_api_scope_ref_siblings(output_file: Path, schema_version: str) -> None:
+    """Use a reference with only annotation or extension siblings as its model, as a property does."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "api_scope_ref_siblings.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file=f"api_scope_ref_siblings/oas{schema_version.replace('.', '')}.py",
+        extra_args=[
+            "--openapi-scopes",
+            "schemas",
+            "api",
+            "--schema-version",
+            schema_version,
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
+
+
 def test_main_openapi_api_scope_path_names_custom_class_name_generator(tmp_path: Path) -> None:
     """Hand the custom class name generator the route-derived API scope names."""
     run_generate_file_and_assert(

@@ -77,23 +77,14 @@ ValuesGetQueryRowsParameter = TypeAliasType(
 )
 
 
-ValuesGetQueryMarksParameter = TypeAliasType("ValuesGetQueryMarksParameter", Tags)
-
-
 ValuesGetQueryExtrasParameter = TypeAliasType(
     "ValuesGetQueryExtrasParameter", Annotated[list[str], Field(default_factory=list)]
 )
 
 
-ValuesGetQueryColorParameter = TypeAliasType("ValuesGetQueryColorParameter", Color)
-
-
 class ValuesGetQueryToneParameter(StrEnum):
     red = 'red'
     blue = 'blue'
-
-
-ValuesGetQuerySizedParameter = TypeAliasType("ValuesGetQuerySizedParameter", Size)
 
 
 ValuesGetHeaderXColorsParameter = TypeAliasType(

@@ -12452,6 +12452,9 @@ type PetsPetIdGetPathPetIdParameter = int
 An inline response schema of `GET /pets` would likewise become `PetsGetResponse`. The method arguments keep their
 own names, `limit` and `pet_id`, but a body or response model is a class you import. To name such a model, declare its
 schema under `components.schemas` and refer to it with `$ref`, as the tutorial does for `Pet`, `NewPet`, and `Error`.
+A `$ref` beside only annotations, such as `description`, `title`, `examples`, or `x-` extensions, names that model too,
+as it does for a property; one beside keywords that change its values, such as `minLength` or `nullable`, takes a
+derived name.
 
 ### Return values and `HTTPResult`
 

@@ -486,14 +486,21 @@ class ApiOpenAPIParser(OpenAPIParser):
                     self._discriminator_subtypes[resolved].append(self.model_resolver.resolve_ref(child))
 
     def _acquire_schema(self, name: str, raw: YamlValue, path: list[str], *, role: SchemaRole) -> None:
-        """Generate one declaration, retaining actual direct-reference use types."""
+        """Generate one declaration, retaining actual direct-reference use types.
+
+        A reference whose siblings are only annotations or extensions is used as the model it names, as a property is.
+        """
         declaration = self._declaration_id(path)
         if declaration in self._processed_declarations:
             return
         with self._schema_frame(name, path, self.raw_obj, raw_schema=raw, role=role):
-            if isinstance(raw, dict) and len(raw) == 1 and isinstance(raw.get("$ref"), str):
+            if (
+                isinstance(raw, dict)
+                and isinstance(ref := raw.get("$ref"), str)
+                and (len(raw) == 1 or not self._validate_schema_object(raw, path).has_ref_with_schema_keywords)
+            ):
                 self._declaration_types[declaration] = self._parse_schema_or_ref(
-                    name, ReferenceObject.model_validate(raw), path
+                    name, ReferenceObject.model_validate({"$ref": ref}), path
                 )
             elif declaration.document not in self._api_roots:
                 self._parse_file(
